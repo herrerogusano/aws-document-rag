@@ -11,7 +11,7 @@ An owner-isolated retrieval-augmented generation (RAG) application on AWS. Authe
 3. Finalize the upload and start a bounded Knowledge Base ingestion job.
 4. Poll until the document is `READY`.
 5. Ask a question across all documents or one selected document.
-6. See a bounded Nova Micro answer and citations to the retrieved owner-matching documents.
+6. See a bounded Nova Lite answer and citations to the retrieved owner-matching documents.
 
 The browser never supplies an owner ID. Every protected operation derives ownership from the verified Cognito JWT `sub`.
 
@@ -30,7 +30,7 @@ flowchart LR
     K --> V["S3 Vectors"]
     Q --> M
     Q -->|"owner_sub filter"| K
-    Q -->|"bounded context"| B["Bedrock Nova Micro"]
+    Q -->|"bounded context"| B["Bedrock Nova Lite"]
     H["CloudFront + OAC"] -->|"signed origin read"| F["Private frontend S3"]
     U -. "served by" .-> H
 ```
@@ -44,7 +44,7 @@ Why each service exists:
 - **DynamoDB** stores authoritative document lifecycle/ownership and the atomic monthly generation counter.
 - **Bedrock Knowledge Bases** manages chunking, embeddings, ingestion, retrieval, and source attribution.
 - **S3 Vectors** stores/query embeddings without a provisioned OpenSearch collection.
-- **Nova Micro** generates one bounded response from retrieved context.
+- **Nova Lite** generates one bounded response from retrieved context; a versioned ambiguity suite checks comparisons, ellipsis, missing evidence, conflicts, and prompt injection.
 - **CloudFront with OAC** serves the SPA over HTTPS while the origin bucket remains private.
 
 ## RAG and isolation lifecycle
@@ -111,6 +111,7 @@ Copy `frontend/.env.example` to the ignored `frontend/.env.local` and fill only 
 - [GitHub OIDC CI/CD](docs/cicd.md)
 - [Repeatable demo](docs/demo.md)
 - [Interview explanations](docs/interview-guide.md)
+- [Semantic evaluation](docs/evaluation.md)
 - [Final verification](docs/plan/PHASE_11_AUDIT.md)
 
 Infrastructure is defined in `template.yaml`; deployment bootstrap access is defined separately in `infrastructure/deployment-access.yaml`. Teardown is intentionally manual because buckets, user identities, metadata, vectors, and source documents are data-bearing resources.

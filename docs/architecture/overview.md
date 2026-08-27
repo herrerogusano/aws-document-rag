@@ -8,7 +8,7 @@ The application is a single-Region, serverless, owner-isolated RAG system. `temp
 - Cognito handles Authorization Code + PKCE for a public SPA client.
 - API Gateway validates JWTs before invoking three Lambdas: identity, documents, and query.
 - The document Lambda manages five-minute direct-to-S3 uploads, DynamoDB lifecycle records, metadata sidecars, and Bedrock Knowledge Base ingestion.
-- The query Lambda retrieves through the Knowledge Base with a mandatory JWT-derived `owner_sub` filter, validates returned metadata, consumes one atomic budget unit, and invokes Nova Micro once.
+- The query Lambda retrieves through the Knowledge Base with a mandatory JWT-derived `owner_sub` filter, validates returned metadata, consumes one atomic budget unit, and invokes Nova Lite once.
 - The Knowledge Base chunks source objects, produces Titan Text Embeddings V2 vectors, and indexes them in S3 Vectors.
 
 ## Authoritative versus derived state

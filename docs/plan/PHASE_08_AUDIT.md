@@ -50,7 +50,7 @@ Rates below were checked against the AWS Price List API and official pricing pag
 | Titan Text Embeddings V2 | $0.000026004/1K input tokens | 20 tiny documents: expected below $0.02 |
 | Bedrock Knowledge Bases | no provisioned collection in this design; ingestion/retrieval uses model, S3 and vector dimensions | covered by embeddings and S3 Vectors |
 | S3 Vectors | $0.06/GB-month storage; $2.50/million queries; processing/PUT dimensions also apply | tiny index + 200 retrievals: expected below $0.01 |
-| Nova Micro | $0.00004/1K input and $0.00016/1K output tokens | approved 100-query envelope: below $0.10 |
+| Nova Lite | $0.000069/1K input and $0.000276/1K output tokens (Price List API, 2026-08-28) | approved 100-query envelope remains below $0.10 |
 | CloudWatch | $0.57/GB Standard log ingestion and $0.03/GB-month storage in Ireland | concise logs + 14-day API retention: expected below $0.01 |
 | Frontend hosting | Added in Phase 9: private S3 artifact bucket plus CloudFront OAC distribution, Price Class 100 | Expected below $0.01/month at the documented portfolio traffic; see Gate D |
 

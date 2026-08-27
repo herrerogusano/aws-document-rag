@@ -120,6 +120,8 @@ def test_generation_is_bounded_and_citations_come_from_retrieval(monkeypatch: An
     assert "untrusted data" in model.calls[0]["system"][0]["text"]
     assert "before and after values" in model.calls[0]["system"][0]["text"]
     assert "same language" in model.calls[0]["system"][0]["text"]
+    assert "sources conflict" in model.calls[0]["system"][0]["text"]
+    assert "single clear referent" in model.calls[0]["system"][0]["text"]
     assert injection in model.calls[0]["messages"][0]["content"][0]["text"]
     assert payload["citations"] == [{"documentId": "doc-a", "filename": "notes.txt"}]
 

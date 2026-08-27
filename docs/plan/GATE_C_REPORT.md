@@ -1,5 +1,7 @@
 # Gate C report — first generative RAG call
 
+> Historical baseline: Nova Micro was the initially approved model. The active model was upgraded to Nova Lite under `GATE_C_NOVA_LITE_ADDENDUM.md` on 2026-08-28 without relaxing any token, retry, isolation, or monthly-call bound.
+
 Prepared 2026-08-27 from current AWS documentation and the AWS Price List API for `eu-west-1`.
 
 ## Bounded configuration

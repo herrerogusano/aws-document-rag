@@ -73,7 +73,7 @@ No implementation gate is pending. Gate F still applies to any future exact dest
 ## Phase 6 completion
 
 - Gate C: approved on 2026-08-27 within the exact limits in `GATE_C_REPORT.md` through the user's explicit autonomous-gate delegation.
-- Query pipeline: authenticated `POST /query` performs owner-filtered Knowledge Base retrieval, drops mismatched metadata, bounds context, invokes Nova Micro once and cites only retrieved documents.
+- Query pipeline: authenticated `POST /query` performs owner-filtered Knowledge Base retrieval, drops mismatched metadata, bounds context, invokes the approved Nova model once and cites only retrieved documents. Nova Micro was upgraded to Nova Lite on 2026-08-28 after an ambiguity evaluation.
 - Prompt-injection defense: retrieved text is serialized as untrusted data under a system instruction that rejects embedded commands and secret requests.
 - Cost bounds: at most five 2,000-character chunks, a 1,000-character question and 256 generated tokens; zero results skip generation and no automatic retry is configured.
 - Live validation: the first Gate C query returned HTTP 200, a non-empty answer and one citation matching the READY document. No answer text or source content was logged.
