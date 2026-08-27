@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Application contracts for an owner-isolated AWS document RAG application."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
-dependencies = []
+dependencies = ["boto3>=1.40,<2"]
 
 [dependency-groups]
 dev = [
@@ -36,3 +36,7 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.13"
 strict = true
 files = ["backend/src", "backend/tests"]
+
+[[tool.mypy.overrides]]
+module = ["boto3"]
+ignore_missing_imports = true
