@@ -160,6 +160,109 @@ Resources:
         - AttributeName: documentId
           KeyType: RANGE
 
+  VectorBucket:
+    Type: AWS::S3Vectors::VectorBucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VectorBucketName: !Sub docrag-vectors-${AWS::AccountId}
+      EncryptionConfiguration:
+        SseType: AES256
+
+  VectorIndex:
+    Type: AWS::S3Vectors::Index
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VectorBucketArn: !GetAtt VectorBucket.VectorBucketArn
+      IndexName: document-rag-index
+      DataType: float32
+      Dimension: 1024
+      DistanceMetric: cosine
+
+  BedrockKnowledgeBaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*
+      Policies:
+        - PolicyName: exact-knowledge-base-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InvokeSelectedEmbeddingModel
+                Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+              - Sid: ListPrivateDocumentPrefix
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt DocumentsBucket.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix: users/*
+              - Sid: ReadPrivateDocumentsAndSidecars
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub ${DocumentsBucket.Arn}/users/*
+              - Sid: ExactVectorIndexAccess
+                Effect: Allow
+                Action:
+                  - s3vectors:PutVectors
+                  - s3vectors:GetVectors
+                  - s3vectors:DeleteVectors
+                  - s3vectors:QueryVectors
+                  - s3vectors:GetIndex
+                Resource: !GetAtt VectorIndex.IndexArn
+
+  KnowledgeBase:
+    Type: AWS::Bedrock::KnowledgeBase
+    Properties:
+      Name: aws-document-rag-dev
+      Description: Owner-filtered private document retrieval knowledge base.
+      RoleArn: !GetAtt BedrockKnowledgeBaseRole.Arn
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+          EmbeddingModelConfiguration:
+            BedrockEmbeddingModelConfiguration:
+              Dimensions: 1024
+              EmbeddingDataType: FLOAT32
+      StorageConfiguration:
+        Type: S3_VECTORS
+        S3VectorsConfiguration:
+          IndexArn: !GetAtt VectorIndex.IndexArn
+
+  KnowledgeBaseDataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      KnowledgeBaseId: !Ref KnowledgeBase
+      Name: private_documents
+      Description: Private owner-scoped documents and metadata sidecars.
+      DataDeletionPolicy: RETAIN
+      DataSourceConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !GetAtt DocumentsBucket.Arn
+          InclusionPrefixes: [users/]
+      VectorIngestionConfiguration:
+        ChunkingConfiguration:
+          ChunkingStrategy: FIXED_SIZE
+          FixedSizeChunkingConfiguration:
+            MaxTokens: 300
+            OverlapPercentage: 20
+
 Outputs:
   ApiUrl:
     Description: HTTP API base URL after an approved deployment.
@@ -173,3 +276,9 @@ Outputs:
   ManagedLoginUrl:
     Description: Cognito managed login base URL after an approved deployment.
     Value: !Sub https://docrag-dev-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
+  KnowledgeBaseId:
+    Description: Bedrock Knowledge Base identifier.
+    Value: !Ref KnowledgeBase
+  KnowledgeBaseDataSourceId:
+    Description: Bedrock data source identifier.
+    Value: !GetAtt KnowledgeBaseDataSource.DataSourceId

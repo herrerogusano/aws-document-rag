@@ -1,7 +1,7 @@
 # Progress
 
-Current phase: `4`
-Status: `blocked_at_gate_b`
+Current phase: `5`
+Status: `in_progress`
 
 ## Phase status
 
@@ -9,7 +9,7 @@ Status: `blocked_at_gate_b`
 - [x] Phase 1 — React application shell and mocked document workflow
 - [x] Phase 2 — Cognito authentication and protected API skeleton
 - [x] Phase 3 — Secure document upload with S3 + DynamoDB metadata
-- [ ] Phase 4 — Bedrock Knowledge Base + S3 Vectors + embeddings
+- [x] Phase 4 — Bedrock Knowledge Base + S3 Vectors + embeddings
 - [ ] Phase 5 — Ingestion lifecycle, metadata filtering and ownership isolation
 - [ ] Phase 6 — RAG query pipeline with retrieval, generation and citations
 - [ ] Phase 7 — Full-stack UX integration
@@ -26,10 +26,11 @@ Status: `blocked_at_gate_b`
 - Phase 2: Cognito/API Gateway/Lambda and Cognito Hosted UI prefix deployed after Gate A approval; synthetic JWT handler tests plus unauthenticated endpoint, CORS, and Hosted UI availability checks pass. One test user was created with invitation delivery; real sign-in awaits its first password-change completion.
 - Phase 2 completion: the real Authorization Code + PKCE browser flow completed and the local frontend confirmed that `/me` accepted its JWT; no token was logged or stored outside browser session storage.
 - Phase 3: all offline checks pass (Ruff, mypy, 13 pytest tests, SAM lint/build, frontend lint, 2 Vitest tests and production build). A real authenticated TXT upload completed through a regional presigned URL; private S3 object, Cognito owner match, list persistence and lifecycle status were verified.
+- Phase 4: Gate B approved; one Knowledge Base, S3 data source and private SSE-S3 vector bucket/index deployed in `eu-west-1`. One sub-10-KiB document ingested and one owner-filtered retrieval returned one result with matching owner/document metadata. No generation occurred.
 
 ## Pending gate
 
-Gate B — First Bedrock Knowledge Base / S3 Vectors / embedding ingestion (`pending`). Phase 4 may be prepared locally, but no Bedrock resource or invocation may occur before approval.
+Gate C — First real generative RAG call (`pending`). Phases 5 and retrieval-only portions of Phase 6 may proceed, but no generative model invocation may occur before approval.
 
 ## Decisions that affect later phases
 
@@ -48,6 +49,16 @@ Gate B — First Bedrock Knowledge Base / S3 Vectors / embedding ingestion (`pen
 - Incident resolved: S3 URLs are generated directly against the regional endpoint to prevent a browser-blocked `307` redirect. Five metadata-only records left by failed attempts were removed after confirming that no S3 objects existed; the successful document remains.
 - Deployment state: Phase 3 resources and routes are live in `eu-west-1`; the local frontend restores its Cognito session and reloads persisted document metadata.
 - Next phase: Phase 4 local design and tests, then Gate B before any Bedrock Knowledge Base, S3 Vectors, embedding ingestion or retrieval call.
+
+## Phase 4 completion
+
+- Gate B: approved on 2026-08-27 within the limits in `GATE_B_REPORT.md`.
+- Resources created: one Bedrock Knowledge Base, one S3 data source, one SSE-S3 vector bucket, one 1,024-dimension cosine vector index and one least-privilege Bedrock service role.
+- Configuration: Titan Text Embeddings V2, 300-token fixed chunks, 20% overlap, standard parser, no OpenSearch Serverless and no generative model.
+- Isolation: filter-only `owner_sub` and `document_id` sidecar metadata; retrieval configuration requires an exact owner equality filter.
+- Live validation: one document scanned/indexed successfully; one retrieval-only call returned one result and its sanitized metadata matched both expected identifiers.
+- Deployment note: the first vector-bucket attempt rolled back because the generated name used a reserved prefix; a bounded explicit name fixed the issue and the second deployment completed.
+- Next phase: Phase 5 ingestion lifecycle, status reconciliation and multi-owner isolation tests.
 
 ## Phase 2 completion
 

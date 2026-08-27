@@ -14,6 +14,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from .documents import create_document_key, validate_upload_size
+from .ingestion_metadata import metadata_sidecar_key, serialize_metadata_sidecar
 
 
 @cache
@@ -106,6 +107,12 @@ def finalize_document(event: dict[str, Any]) -> dict[str, Any]:
         if error.response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 404:
             return _response(409, {"error": "Upload is not present"})
         raise
+    _s3_client().put_object(
+        Bucket=_bucket(),
+        Key=metadata_sidecar_key(item["s3Key"]),
+        Body=serialize_metadata_sidecar(owner, document_id),
+        ContentType="application/json",
+    )
     now = datetime.now(UTC).isoformat()
     table.update_item(
         Key={"ownerId": owner, "documentId": document_id},
