@@ -32,7 +32,9 @@ Before creation or first real ingestion, show:
 
 ## Gate C — First real generative RAG call
 
-Status: `pending`
+Status: `approved_2026-08-27_bounded_via_explicit_delegation`
+
+Approved envelope: Nova Micro EU inference profile, at most five owner-filtered chunks, 1,000 question characters, 2,000 characters per chunk, 256 output tokens, one invocation with no retry, first approved document validation and at most 100 development queries. See `GATE_C_REPORT.md`.
 
 Before invoking the generation model on real/synthetic retrieved data, show:
 - chosen model/model ID;

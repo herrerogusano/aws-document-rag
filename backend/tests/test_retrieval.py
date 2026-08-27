@@ -30,3 +30,12 @@ def test_user_a_configuration_cannot_retrieve_user_b_document() -> None:
 def test_retrieval_result_count_is_bounded() -> None:
     with pytest.raises(ValueError):
         retrieval_configuration("owner-a", number_of_results=6)
+
+
+def test_document_filter_can_only_narrow_owner_scope() -> None:
+    configuration = retrieval_configuration("owner-a", document_id="doc-a")
+    filters = configuration["vectorSearchConfiguration"]["filter"]["andAll"]
+    assert filters == [
+        {"equals": {"key": "owner_sub", "value": "owner-a"}},
+        {"equals": {"key": "document_id", "value": "doc-a"}},
+    ]
