@@ -52,9 +52,9 @@ Rates below were checked against the AWS Price List API and official pricing pag
 | S3 Vectors | $0.06/GB-month storage; $2.50/million queries; processing/PUT dimensions also apply | tiny index + 200 retrievals: expected below $0.01 |
 | Nova Micro | $0.00004/1K input and $0.00016/1K output tokens | approved 100-query envelope: below $0.10 |
 | CloudWatch | $0.57/GB Standard log ingestion and $0.03/GB-month storage in Ireland | concise logs + 14-day API retention: expected below $0.01 |
-| Frontend hosting | no resource yet; Gate D report will re-check CloudFront/S3 or selected hosting rates | $0 in Phase 8 |
+| Frontend hosting | Added in Phase 9: private S3 artifact bucket plus CloudFront OAC distribution, Price Class 100 | Expected below $0.01/month at the documented portfolio traffic; see Gate D |
 
-Expected application usage remains comfortably below $0.20/month before any account-level taxes, data transfer, unrelated workloads or hosting. Cognito email delivery and unusual error/log volume are dependent costs to watch.
+Expected bounded application plus hosting usage remains roughly below $0.25/month before account-level taxes, pricing changes, unusual traffic, Cognito email delivery, or unrelated workloads. This is an estimate rather than a billing guarantee.
 
 Official sources:
 
@@ -71,7 +71,7 @@ Official sources:
 
 - No paid CloudWatch alarm is added. A standard alarm is currently $0.10 per metric-month in Ireland, disproportionate to this bounded portfolio environment. Native Lambda/API metrics and structured logs remain available. Production should add 5xx, throttling and generation-budget alarms with an explicit monitoring budget.
 - No WAF, custom domain, multi-Region replication, provisioned throughput, OpenSearch Serverless, reranker or advanced parser is enabled.
-- Frontend hosting remains Gate D; automatic deployment remains Gate E.
+- The Phase 9/10 hosting and deployment gates were completed later; no WAF/custom domain/multi-Region/provisioned search resources were added.
 
 ## Operational checks
 

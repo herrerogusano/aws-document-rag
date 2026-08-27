@@ -23,3 +23,7 @@ Recommended `main` ruleset:
 - retain administrator recovery rather than applying an unreviewed lockout automatically.
 
 Rollback uses CloudFormation's normal rollback and the previous frontend artifact procedure in `docs/manual-deployment.md`. Disable the deployment workflow or revoke the exact OIDC trust to stop future CD without changing runtime resources.
+
+## Proven deployment
+
+The first end-to-end automatic run completed successfully on 2026-08-27: both `quality` and `deploy` passed for the merged `main` commit, CloudFormation completed, the production frontend was rebuilt from stack outputs, artifacts were published without deletion, and one invalidation was created. Two failures encountered during commissioning—missing SAM transform expansion permission and empty output parsing—were fixed with narrow permissions, explicit output validation, regression tests, and green PR checks.

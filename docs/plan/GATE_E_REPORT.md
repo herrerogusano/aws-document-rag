@@ -54,3 +54,9 @@ Official references:
 ## Authorization
 
 The user explicitly delegated autonomous approval of successive bounded gates on 2026-08-27. Gate E is approved only for this trust, IAM, branch, workflow and rollback envelope. Gate F remains exact-action-only.
+
+## Deployment result
+
+The first complete automatic deployment succeeded on 2026-08-27. The workflow's `quality` and `deploy` jobs passed for the exact merged `main` commit; the SAM stack completed, required outputs were validated, the production SPA was rebuilt, artifacts were uploaded without deletion, and one CloudFront invalidation was submitted. No document, ingestion, retrieval, or generative-model call occurred.
+
+Commissioning exposed two fail-closed issues: CloudFormation initially lacked permission to expand the exact SAM transform, and the first output parser produced empty strings before publishing. Both runs stopped safely without deleting data. The role now grants `CreateChangeSet` only on the regional SAM transform ARN, the output step rejects missing values, and regression tests cover both controls.
