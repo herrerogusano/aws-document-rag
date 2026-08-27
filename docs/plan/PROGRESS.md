@@ -1,7 +1,7 @@
 # Progress
 
 Current phase: `3`
-Status: `blocked_by_gate_a_scope_review`
+Status: `in_progress`
 
 ## Phase status
 
@@ -25,6 +25,7 @@ Status: `blocked_by_gate_a_scope_review`
 - Phase 1: frontend lint, Vitest (2 passed), and production build pass locally.
 - Phase 2: Cognito/API Gateway/Lambda and Cognito Hosted UI prefix deployed after Gate A approval; synthetic JWT handler tests plus unauthenticated endpoint, CORS, and Hosted UI availability checks pass. One test user was created with invitation delivery; real sign-in awaits its first password-change completion.
 - Phase 2 completion: the real Authorization Code + PKCE browser flow completed and the local frontend confirmed that `/me` accepted its JWT; no token was logged or stored outside browser session storage.
+- Phase 3: approved private S3 bucket and on-demand DynamoDB table deployed and verified; authenticated presign/list/finalize handlers remain in implementation.
 
 ## Pending gate
 
