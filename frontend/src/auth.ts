@@ -49,15 +49,27 @@ export async function completeCognitoLogin(): Promise<AuthSession | null> {
   })
   if (!response.ok) throw new Error('Sign-in could not be completed.')
   const tokens: { id_token: string } = await response.json()
-  const apiResponse = await fetch(`${config.apiBaseUrl}/me`, {
-    headers: { authorization: `Bearer ${tokens.id_token}` },
-  })
-  if (!apiResponse.ok) throw new Error('Signed in, but the protected API rejected the session.')
-  const profile: { ownerId: string } = await apiResponse.json()
+  const profile = await validateToken(tokens.id_token)
   sessionStorage.setItem('id_token', tokens.id_token)
   sessionStorage.removeItem('pkce_verifier')
   window.history.replaceState({}, document.title, window.location.pathname)
+  return profile
+}
+
+async function validateToken(token: string): Promise<AuthSession> {
+  const apiResponse = await fetch(`${config.apiBaseUrl}/me`, {
+    headers: { authorization: `Bearer ${token}` },
+  })
+  if (!apiResponse.ok) throw new Error('Signed in, but the protected API rejected the session.')
+  const profile: { ownerId: string } = await apiResponse.json()
   return { ownerId: profile.ownerId }
 }
 
 export function signOut(): void { sessionStorage.removeItem('id_token') }
+
+export function accessToken(): string | null { return sessionStorage.getItem('id_token') }
+
+export async function restoreCognitoSession(): Promise<AuthSession | null> {
+  const token = accessToken()
+  return token && cognitoConfigured ? validateToken(token) : null
+}

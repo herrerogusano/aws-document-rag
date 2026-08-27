@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { cognitoConfigured, completeCognitoLogin, signOut, startCognitoLogin } from './auth'
+import { cognitoConfigured, completeCognitoLogin, restoreCognitoSession, signOut, startCognitoLogin } from './auth'
 import type { Citation, DocumentItem, QueryAnswer } from './contracts'
-import { mockDocumentsApi, mockQueryApi } from './mocks'
+import { cognitoDocumentsApi, listCognitoDocuments, mockDocumentsApi, mockQueryApi } from './mocks'
 import './App.css'
 
 const allowedExtensions = ['pdf', 'txt', 'md']
@@ -19,8 +19,12 @@ function App() {
   const [answer, setAnswer] = useState<QueryAnswer | null>(null)
 
   useEffect(() => {
-    completeCognitoLogin().then((session) => {
-      if (session) { setSignedIn(true); setNotice('Signed in with Cognito; the protected API accepted your JWT.') }
+    completeCognitoLogin().then((session) => session ?? restoreCognitoSession()).then((session) => {
+      if (session) {
+        setSignedIn(true)
+        setNotice('Signed in with Cognito; the protected API accepted your JWT.')
+        if (cognitoConfigured) void listCognitoDocuments().then(setDocuments).catch(() => setNotice('Signed in, but documents could not be loaded.'))
+      }
     }).catch((error: unknown) => setNotice(error instanceof Error ? error.message : 'Sign-in failed.'))
   }, [])
 
@@ -32,10 +36,14 @@ function App() {
       return
     }
     setNotice('Reading document locally…')
-    const document = await mockDocumentsApi.upload(selectedFile)
-    setDocuments((current) => [document, ...current])
-    setNotice(`${document.filename} is ready for grounded questions.`)
-    setSelectedFile(null)
+    try {
+      const document = await (cognitoConfigured ? cognitoDocumentsApi : mockDocumentsApi).upload(selectedFile)
+      setDocuments((current) => [document, ...current])
+      setNotice(`${document.filename} was uploaded privately and is awaiting ingestion.`)
+      setSelectedFile(null)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'The upload could not be completed.')
+    }
   }
 
   async function askQuestion(): Promise<void> {
@@ -67,7 +75,7 @@ function App() {
         <section className="panel documents"><div className="panel-heading"><p className="eyebrow">01 / DOCUMENTS</p><span>{documents.length.toString().padStart(2, '0')} FILES</span></div>
           <label className="dropzone"><input aria-label="Choose document" type="file" accept=".pdf,.txt,.md" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} /><span>{selectedFile ? selectedFile.name : 'Choose a source document'}</span><small>PDF · TXT · MD</small></label>
           <button className="primary upload" disabled={!selectedFile} onClick={uploadDocument}>Add to archive <span>+</span></button>
-          <ul className="document-list">{documents.length === 0 ? <li className="empty">Your archive is waiting for its first source.</li> : documents.map((document) => <li key={document.id}><span className="file-mark">{document.filename.split('.').pop()}</span><div><strong>{document.filename}</strong><small>READY · {document.sizeLabel}</small></div><b>✓</b></li>)}</ul>
+          <ul className="document-list">{documents.length === 0 ? <li className="empty">Your archive is waiting for its first source.</li> : documents.map((document) => <li key={document.id}><span className="file-mark">{document.filename.split('.').pop()}</span><div><strong>{document.filename}</strong><small>{document.status.replace('_', ' ')} · {document.sizeLabel}</small></div><b>✓</b></li>)}</ul>
         </section>
         <section className="panel query"><div className="panel-heading"><p className="eyebrow">02 / QUESTION</p><span>GROUNDED ONLY</span></div>
           <textarea aria-label="Ask a question" placeholder="What would you like to verify?" value={question} onChange={(event) => setQuestion(event.target.value)} />

@@ -1,14 +1,14 @@
 # Progress
 
-Current phase: `3`
-Status: `in_progress`
+Current phase: `4`
+Status: `blocked_at_gate_b`
 
 ## Phase status
 
 - [x] Phase 0 — Bootstrap, repo structure, local contracts and CI baseline
 - [x] Phase 1 — React application shell and mocked document workflow
 - [x] Phase 2 — Cognito authentication and protected API skeleton
-- [ ] Phase 3 — Secure document upload with S3 + DynamoDB metadata
+- [x] Phase 3 — Secure document upload with S3 + DynamoDB metadata
 - [ ] Phase 4 — Bedrock Knowledge Base + S3 Vectors + embeddings
 - [ ] Phase 5 — Ingestion lifecycle, metadata filtering and ownership isolation
 - [ ] Phase 6 — RAG query pipeline with retrieval, generation and citations
@@ -25,11 +25,11 @@ Status: `in_progress`
 - Phase 1: frontend lint, Vitest (2 passed), and production build pass locally.
 - Phase 2: Cognito/API Gateway/Lambda and Cognito Hosted UI prefix deployed after Gate A approval; synthetic JWT handler tests plus unauthenticated endpoint, CORS, and Hosted UI availability checks pass. One test user was created with invitation delivery; real sign-in awaits its first password-change completion.
 - Phase 2 completion: the real Authorization Code + PKCE browser flow completed and the local frontend confirmed that `/me` accepted its JWT; no token was logged or stored outside browser session storage.
-- Phase 3: approved private S3 bucket and on-demand DynamoDB table deployed and verified; authenticated presign/list/finalize handlers remain in implementation.
+- Phase 3: all offline checks pass (Ruff, mypy, 13 pytest tests, SAM lint/build, frontend lint, 2 Vitest tests and production build). A real authenticated TXT upload completed through a regional presigned URL; private S3 object, Cognito owner match, list persistence and lifecycle status were verified.
 
 ## Pending gate
 
-Gate A — First AWS deployment (`approved and deployed 2026-08-27`); Managed Login domain addendum approved and deployed. Test-user credential gate approved and actioned; awaiting user-controlled first sign-in/password change.
+Gate B — First Bedrock Knowledge Base / S3 Vectors / embedding ingestion (`pending`). Phase 4 may be prepared locally, but no Bedrock resource or invocation may occur before approval.
 
 ## Decisions that affect later phases
 
@@ -39,6 +39,15 @@ Gate A — First AWS deployment (`approved and deployed 2026-08-27`); Managed Lo
 - React is intentionally backed by injectable local mock adapters until the Phase 2 Cognito/API boundary is approved.
 - Gate A deployed Cognito, a public SPA client without secret, a JWT-authorized HTTP API, and a Lambda `/me` in `eu-west-1`; no user accounts or document data were created.
 - The Cognito Hosted UI prefix was deployed after addendum approval. The first domain name was rejected because AWS reserves `aws` in prefix domains; CloudFormation rolled back that resource only, and the corrected prefix deployed successfully.
+
+## Phase 3 completion
+
+- Resources created: one private SSE-S3 document bucket with Block Public Access and localhost-only upload CORS; one DynamoDB on-demand metadata table; one authenticated document Lambda and owner-scoped API routes.
+- Runtime flow: authenticated presign, direct browser-to-S3 upload, upload confirmation, list and get. Document bytes never pass through Lambda/API Gateway.
+- Security validation: server-generated Cognito-`sub` object keys, five-minute presigned PUT, private object confirmed, metadata owner matched the real login, and other-owner reads are covered by offline tests.
+- Incident resolved: S3 URLs are generated directly against the regional endpoint to prevent a browser-blocked `307` redirect. Five metadata-only records left by failed attempts were removed after confirming that no S3 objects existed; the successful document remains.
+- Deployment state: Phase 3 resources and routes are live in `eu-west-1`; the local frontend restores its Cognito session and reloads persisted document metadata.
+- Next phase: Phase 4 local design and tests, then Gate B before any Bedrock Knowledge Base, S3 Vectors, embedding ingestion or retrieval call.
 
 ## Phase 2 completion
 

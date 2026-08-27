@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: AWS Document RAG — Phase 2 authentication baseline (not deployed).
+Description: AWS Document RAG — authenticated private document upload baseline.
 
 Parameters:
   AllowedFrontendOrigin:
@@ -58,7 +58,7 @@ Resources:
       CorsConfiguration:
         AllowOrigins: [!Ref AllowedFrontendOrigin]
         AllowHeaders: [authorization, content-type]
-        AllowMethods: [GET]
+        AllowMethods: [GET, POST]
         MaxAge: 600
       Auth:
         Authorizers:
@@ -86,7 +86,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend/src/
-      Handler: aws_document_rag.document_handler.presign
+      Handler: aws_document_rag.document_handler.documents
       Environment:
         Variables:
           DOCUMENTS_BUCKET: !Ref DocumentsBucket
@@ -94,7 +94,11 @@ Resources:
       Policies:
         - S3WritePolicy:
             BucketName: !Ref DocumentsBucket
-        - DynamoDBWritePolicy:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub ${DocumentsBucket.Arn}/users/*
+        - DynamoDBCrudPolicy:
             TableName: !Ref DocumentsTable
       Events:
         Presign:
@@ -102,6 +106,24 @@ Resources:
           Properties:
             ApiId: !Ref HttpApi
             Path: /documents/presign
+            Method: POST
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /documents
+            Method: GET
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /documents/{id}
+            Method: GET
+        Finalize:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /documents/{id}/finalize
             Method: POST
 
   DocumentsBucket:
@@ -111,6 +133,12 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: [content-type]
+            AllowedMethods: [PUT]
+            AllowedOrigins: [!Ref AllowedFrontendOrigin]
+            MaxAge: 300
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
