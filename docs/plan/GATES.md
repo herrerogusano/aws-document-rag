@@ -55,7 +55,9 @@ Before creating/activating CloudFront/S3 hosting resources, show resources, secu
 
 ## Gate E — First automatic CD deployment
 
-Status: `pending`
+Status: `approved_2026-08-27_bounded_via_explicit_delegation`
+
+Approved envelope: exact immutable GitHub repository + `main` OIDC subject, a project deploy role, a separate project CloudFormation execution role, serialized quality-gated SAM/frontend deployment, no object deletion and no live document/RAG action. See `GATE_E_REPORT.md`.
 
 Before enabling merge-to-main deployment, show:
 - OIDC trust scope;

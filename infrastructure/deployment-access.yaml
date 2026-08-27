@@ -1,0 +1,287 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Least-privilege bootstrap access for AWS Document RAG GitHub OIDC deployment.
+
+Parameters:
+  GitHubOwner:
+    Type: String
+  GitHubOwnerId:
+    Type: String
+    AllowedPattern: "[0-9]+"
+  GitHubRepository:
+    Type: String
+  GitHubRepositoryId:
+    Type: String
+    AllowedPattern: "[0-9]+"
+  MainStackName:
+    Type: String
+    Default: aws-document-rag-dev
+  SamArtifactBucket:
+    Type: String
+  FrontendBucket:
+    Type: String
+  FrontendDistributionId:
+    Type: String
+
+Resources:
+  CloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: aws-document-rag-cfn-execution
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: project-resource-management
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ProjectIamRoles
+                Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:PassRole
+                  - iam:PutRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateAssumeRolePolicy
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${MainStackName}-*
+              - Sid: ProjectLambda
+                Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:GetPolicy
+                  - lambda:ListTags
+                  - lambda:RemovePermission
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${MainStackName}-*
+              - Sid: ReadPackagedLambdaArtifacts
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${SamArtifactBucket}/*
+              - Sid: ProjectTables
+                Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeTable
+                  - dynamodb:DescribeTimeToLive
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:UpdateTable
+                  - dynamodb:UpdateTimeToLive
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MainStackName}-*
+              - Sid: ProjectBuckets
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:DeleteBucketPolicy
+                  - s3:GetBucketCORS
+                  - s3:GetBucketPolicy
+                  - s3:GetBucketTagging
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetLifecycleConfiguration
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:ListBucket
+                  - s3:PutBucketCORS
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketTagging
+                  - s3:PutEncryptionConfiguration
+                  - s3:PutLifecycleConfiguration
+                  - s3:PutBucketPublicAccessBlock
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${MainStackName}-*
+                  - !Sub arn:${AWS::Partition}:s3:::docrag-*
+              - Sid: ProjectLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:ListTagsForResource
+                  - logs:PutRetentionPolicy
+                  - logs:TagResource
+                  - logs:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${MainStackName}-*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${MainStackName}-*
+              - Sid: RegionalApiGatewayControlPlane
+                Effect: Allow
+                Action:
+                  - apigateway:DELETE
+                  - apigateway:GET
+                  - apigateway:PATCH
+                  - apigateway:POST
+                  - apigateway:PUT
+                Resource: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis*
+              - Sid: ProjectCognito
+                Effect: Allow
+                Action:
+                  - cognito-idp:CreateUserPool
+                  - cognito-idp:CreateUserPoolClient
+                  - cognito-idp:CreateUserPoolDomain
+                  - cognito-idp:DeleteUserPool
+                  - cognito-idp:DeleteUserPoolClient
+                  - cognito-idp:DeleteUserPoolDomain
+                  - cognito-idp:DescribeUserPool
+                  - cognito-idp:DescribeUserPoolClient
+                  - cognito-idp:DescribeUserPoolDomain
+                  - cognito-idp:TagResource
+                  - cognito-idp:UntagResource
+                  - cognito-idp:UpdateUserPool
+                  - cognito-idp:UpdateUserPoolClient
+                Resource: !Sub arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+              - Sid: ProjectBedrockKnowledgeBase
+                Effect: Allow
+                Action:
+                  - bedrock:CreateDataSource
+                  - bedrock:CreateKnowledgeBase
+                  - bedrock:DeleteDataSource
+                  - bedrock:DeleteKnowledgeBase
+                  - bedrock:GetDataSource
+                  - bedrock:GetKnowledgeBase
+                  - bedrock:ListTagsForResource
+                  - bedrock:TagResource
+                  - bedrock:UntagResource
+                  - bedrock:UpdateDataSource
+                  - bedrock:UpdateKnowledgeBase
+                Resource:
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*/data-source/*
+              - Sid: ProjectS3Vectors
+                Effect: Allow
+                Action:
+                  - s3vectors:CreateIndex
+                  - s3vectors:CreateVectorBucket
+                  - s3vectors:DeleteIndex
+                  - s3vectors:DeleteVectorBucket
+                  - s3vectors:GetIndex
+                  - s3vectors:GetVectorBucket
+                  - s3vectors:ListTagsForResource
+                  - s3vectors:TagResource
+                  - s3vectors:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3vectors:${AWS::Region}:${AWS::AccountId}:bucket/docrag-*
+                  - !Sub arn:${AWS::Partition}:s3vectors:${AWS::Region}:${AWS::AccountId}:bucket/docrag-*/index/*
+              - Sid: ProjectCloudFront
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateCachePolicy
+                  - cloudfront:CreateDistribution
+                  - cloudfront:CreateOriginAccessControl
+                  - cloudfront:CreateResponseHeadersPolicy
+                  - cloudfront:DeleteCachePolicy
+                  - cloudfront:DeleteDistribution
+                  - cloudfront:DeleteOriginAccessControl
+                  - cloudfront:DeleteResponseHeadersPolicy
+                  - cloudfront:GetCachePolicy
+                  - cloudfront:GetDistribution
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:GetOriginAccessControl
+                  - cloudfront:GetResponseHeadersPolicy
+                  - cloudfront:ListTagsForResource
+                  - cloudfront:TagResource
+                  - cloudfront:UntagResource
+                  - cloudfront:UpdateCachePolicy
+                  - cloudfront:UpdateDistribution
+                  - cloudfront:UpdateOriginAccessControl
+                  - cloudfront:UpdateResponseHeadersPolicy
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*
+                  - !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:cache-policy/*
+                  - !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:origin-access-control/*
+                  - !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:response-headers-policy/*
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: aws-document-rag-github-deploy
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepository}@${GitHubRepositoryId}:ref:refs/heads/main
+      Policies:
+        - PolicyName: exact-project-deployment
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ExactStackChanges
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:ListStackResources
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${MainStackName}/*
+              - Sid: SamArtifactBucket
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: !Sub arn:${AWS::Partition}:s3:::${SamArtifactBucket}
+              - Sid: SamArtifactObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${SamArtifactBucket}/*
+              - Sid: FrontendBucketList
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: !Sub arn:${AWS::Partition}:s3:::${FrontendBucket}
+              - Sid: FrontendObjectPublishWithoutDelete
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${FrontendBucket}/*
+              - Sid: ExactDistributionInvalidation
+                Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistributionId}
+              - Sid: PassExactExecutionRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt CloudFormationExecutionRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
+
+Outputs:
+  GitHubDeployRoleArn:
+    Value: !GetAtt GitHubDeployRole.Arn
+  CloudFormationExecutionRoleArn:
+    Value: !GetAtt CloudFormationExecutionRole.Arn
