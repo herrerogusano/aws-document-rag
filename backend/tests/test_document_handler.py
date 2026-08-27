@@ -33,6 +33,7 @@ class FakeS3:
     def __init__(self, missing: bool = False) -> None:
         self.missing = missing
         self.presign_kwargs: dict[str, Any] = {}
+        self.put_kwargs: dict[str, Any] = {}
 
     def head_object(self, **_kwargs: Any) -> None:
         if self.missing:
@@ -44,6 +45,9 @@ class FakeS3:
     def generate_presigned_url(self, _operation: str, **kwargs: Any) -> str:
         self.presign_kwargs = kwargs
         return "https://private-upload.example/presigned"
+
+    def put_object(self, **kwargs: Any) -> None:
+        self.put_kwargs = kwargs
 
 
 def event(route: str, owner: str = "owner-a", document_id: str | None = None) -> dict[str, Any]:
@@ -111,6 +115,26 @@ def test_finalize_requires_existing_private_object(monkeypatch: Any) -> None:
 
     assert response["statusCode"] == 409
     assert table.items[("owner-a", "a")]["status"] == "PENDING_UPLOAD"
+
+
+def test_finalize_writes_owner_metadata_sidecar(monkeypatch: Any) -> None:
+    table = FakeTable([document("owner-a", "a")])
+    s3 = FakeS3()
+    monkeypatch.setattr(document_handler, "_documents_table", lambda: table)
+    monkeypatch.setattr(document_handler, "_s3_client", lambda: s3)
+    monkeypatch.setattr(document_handler, "_bucket", lambda: "private-bucket")
+
+    response = document_handler.documents(
+        event("POST /documents/{id}/finalize", document_id="a"), None
+    )
+
+    sidecar = json.loads(s3.put_kwargs["Body"])
+    assert response["statusCode"] == 200
+    assert s3.put_kwargs["Key"].endswith("source.txt.metadata.json")
+    assert sidecar["metadataAttributes"] == {
+        "owner_sub": "owner-a",
+        "document_id": "a",
+    }
 
 
 def test_dynamodb_error_is_sanitized(monkeypatch: Any) -> None:

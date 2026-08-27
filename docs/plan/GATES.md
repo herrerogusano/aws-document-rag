@@ -16,7 +16,9 @@ Before first real AWS deployment, show:
 
 ## Gate B — First Bedrock Knowledge Base / S3 Vectors / embedding ingestion
 
-Status: `pending`
+Status: `approved_2026-08-27_bounded`
+
+Approved envelope: one Knowledge Base, one S3 data source, one S3 vector bucket/index, Titan Text Embeddings V2, fixed 300-token/20% overlap chunking, and the limits recorded in `GATE_B_REPORT.md`. No generation, reranking, advanced parser, OpenSearch Serverless, files over 100 KiB for ingestion, more than 20 documents/month or more than 200 retrievals/month.
 
 Before creation or first real ingestion, show:
 - chosen embedding model;
