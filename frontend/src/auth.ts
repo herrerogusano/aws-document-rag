@@ -48,9 +48,10 @@ export async function completeCognitoLogin(): Promise<AuthSession | null> {
     }),
   })
   if (!response.ok) throw new Error('Sign-in could not be completed.')
-  const tokens: { id_token: string } = await response.json()
+  const tokens: { id_token: string; refresh_token?: string } = await response.json()
   const profile = await validateToken(tokens.id_token)
   sessionStorage.setItem('id_token', tokens.id_token)
+  if (tokens.refresh_token) sessionStorage.setItem('refresh_token', tokens.refresh_token)
   sessionStorage.removeItem('pkce_verifier')
   window.history.replaceState({}, document.title, window.location.pathname)
   return profile
@@ -65,9 +66,30 @@ async function validateToken(token: string): Promise<AuthSession> {
   return { ownerId: profile.ownerId }
 }
 
-export function signOut(): void { sessionStorage.removeItem('id_token') }
+export function signOut(): void {
+  sessionStorage.removeItem('id_token')
+  sessionStorage.removeItem('refresh_token')
+}
 
 export function accessToken(): string | null { return sessionStorage.getItem('id_token') }
+
+export async function refreshCognitoSession(): Promise<boolean> {
+  const refreshToken = sessionStorage.getItem('refresh_token')
+  if (!refreshToken || !cognitoConfigured) return false
+  const response = await fetch(`${config.domain}/oauth2/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: config.clientId,
+      refresh_token: refreshToken,
+    }),
+  })
+  if (!response.ok) return false
+  const tokens: { id_token: string } = await response.json()
+  sessionStorage.setItem('id_token', tokens.id_token)
+  return true
+}
 
 export async function restoreCognitoSession(): Promise<AuthSession | null> {
   const token = accessToken()
