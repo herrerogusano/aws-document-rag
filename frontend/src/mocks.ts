@@ -42,6 +42,20 @@ async function waitForReady(apiBaseUrl: string, token: string, documentId: strin
 export const mockDocumentsApi: DocumentsApi = { async upload(file) { return { id: crypto.randomUUID(), filename: file.name, status: 'READY', sizeLabel: sizeLabel(file.size) } } }
 export const mockQueryApi: QueryApi = { async ask(question, documents) { const source = documents[0]; return { answer: `Mocked grounded response: “${question.trim()}” can be investigated using ${source.filename}. Connect the retrieval adapter in a later phase.`, citations: [{ documentId: source.id, filename: source.filename, location: 'local mock source' }], insufficientContext: false } } }
 
+export const cognitoQueryApi: QueryApi = { async ask(question): Promise<import('./contracts').QueryAnswer> {
+  const token = accessToken()
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+  if (!token || !apiBaseUrl) throw new Error('You must sign in before asking a question.')
+  let response: Response
+  try {
+    response = await fetch(`${apiBaseUrl}/query`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ question: question.trim() }) })
+  } catch {
+    throw new Error('Could not reach the grounded query service.')
+  }
+  if (!response.ok) throw new Error('The grounded query could not be completed.')
+  return response.json()
+} }
+
 export const cognitoDocumentsApi: DocumentsApi = { async upload(file): Promise<DocumentItem> {
   const token = accessToken()
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL

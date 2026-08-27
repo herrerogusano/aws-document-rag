@@ -1,7 +1,7 @@
 # Progress
 
-Current phase: `6`
-Status: `preparing_gate_c`
+Current phase: `7`
+Status: `phase_6_complete`
 
 ## Phase status
 
@@ -11,7 +11,7 @@ Status: `preparing_gate_c`
 - [x] Phase 3 — Secure document upload with S3 + DynamoDB metadata
 - [x] Phase 4 — Bedrock Knowledge Base + S3 Vectors + embeddings
 - [x] Phase 5 — Ingestion lifecycle, metadata filtering and ownership isolation
-- [ ] Phase 6 — RAG query pipeline with retrieval, generation and citations
+- [x] Phase 6 — RAG query pipeline with retrieval, generation and citations
 - [ ] Phase 7 — Full-stack UX integration
 - [ ] Phase 8 — Security, reliability, observability and cost hardening
 - [ ] Phase 9 — Production frontend hosting and stable manual deployment
@@ -31,7 +31,7 @@ Status: `preparing_gate_c`
 
 ## Pending gate
 
-Gate C — First real generative RAG call (`pending`). Phases 5 and retrieval-only portions of Phase 6 may proceed, but no generative model invocation may occur before approval.
+Gate D — production frontend hosting. Phase 7 and Phase 8 may proceed before that gate.
 
 ## Decisions that affect later phases
 
@@ -69,6 +69,16 @@ Gate C — First real generative RAG call (`pending`). Phases 5 and retrieval-on
 - Isolation: owner always comes from JWT `sub`; document reads combine owner and document ID; retrieval configuration cannot be built without the exact owner filter. Offline tests include distinct owner-A and owner-B documents.
 - Live validation: the already approved ingestion job was reconciled through the deployed Lambda and the document metadata transitioned to `READY`; no second ingestion was started.
 - Next phase: Phase 6 retrieval and cited generation. Gate C pricing/model bounds must be documented before the first generative call.
+
+## Phase 6 completion
+
+- Gate C: approved on 2026-08-27 within the exact limits in `GATE_C_REPORT.md` through the user's explicit autonomous-gate delegation.
+- Query pipeline: authenticated `POST /query` performs owner-filtered Knowledge Base retrieval, drops mismatched metadata, bounds context, invokes Nova Micro once and cites only retrieved documents.
+- Prompt-injection defense: retrieved text is serialized as untrusted data under a system instruction that rejects embedded commands and secret requests.
+- Cost bounds: at most five 2,000-character chunks, a 1,000-character question and 256 generated tokens; zero results skip generation and no automatic retry is configured.
+- Live validation: the first Gate C query returned HTTP 200, a non-empty answer and one citation matching the READY document. No answer text or source content was logged.
+- Verification: 39 backend tests, mypy, Ruff, SAM lint/build, frontend lint, two frontend tests and the production frontend build pass.
+- Next phase: Phase 7 full-stack UX integration and browser-level validation.
 
 ## Phase 2 completion
 

@@ -140,6 +140,41 @@ Resources:
             Path: /documents/{id}/ingest
             Method: POST
 
+  QueryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/src/
+      Handler: aws_document_rag.query_handler.query
+      Environment:
+        Variables:
+          DOCUMENTS_TABLE: !Ref DocumentsTable
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBase
+          GENERATION_MODEL_ID: eu.amazon.nova-micro-v1:0
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DocumentsTable
+        - Statement:
+            - Sid: RetrieveOnlyFromProjectKnowledgeBase
+              Effect: Allow
+              Action: bedrock:Retrieve
+              Resource: !GetAtt KnowledgeBase.KnowledgeBaseArn
+            - Sid: InvokeApprovedNovaInferenceProfile
+              Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource:
+                - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.amazon.nova-micro-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:eu-central-1::foundation-model/amazon.nova-micro-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:eu-north-1::foundation-model/amazon.nova-micro-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:eu-west-1::foundation-model/amazon.nova-micro-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:eu-west-3::foundation-model/amazon.nova-micro-v1:0
+      Events:
+        Query:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /query
+            Method: POST
+
   DocumentsBucket:
     Type: AWS::S3::Bucket
     Properties:

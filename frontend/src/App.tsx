@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cognitoConfigured, completeCognitoLogin, restoreCognitoSession, signOut, startCognitoLogin } from './auth'
 import type { Citation, DocumentItem, QueryAnswer } from './contracts'
-import { cognitoDocumentsApi, listCognitoDocuments, mockDocumentsApi, mockQueryApi } from './mocks'
+import { cognitoDocumentsApi, cognitoQueryApi, listCognitoDocuments, mockDocumentsApi, mockQueryApi } from './mocks'
 import './App.css'
 
 const allowedExtensions = ['pdf', 'txt', 'md']
@@ -49,9 +49,13 @@ function App() {
   async function askQuestion(): Promise<void> {
     if (!question.trim() || documents.length === 0) return
     setNotice('Finding local source passages…')
-    const result = await mockQueryApi.ask(question, documents)
-    setAnswer(result)
-    setNotice('Answer prepared from the mock document source.')
+    try {
+      const result = await (cognitoConfigured ? cognitoQueryApi : mockQueryApi).ask(question, documents)
+      setAnswer(result)
+      setNotice(result.insufficientContext ? 'The archive does not contain enough evidence.' : 'Answer prepared from your private sources.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'The query could not be completed.')
+    }
   }
 
   if (!signedIn) {
