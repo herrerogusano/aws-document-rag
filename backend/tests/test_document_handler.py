@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from typing import Any
 
 from botocore.exceptions import ClientError
@@ -154,7 +155,9 @@ def test_finalize_requires_existing_private_object(monkeypatch: Any) -> None:
 
 
 def test_finalize_writes_owner_metadata_sidecar(monkeypatch: Any) -> None:
-    table = FakeTable([document("owner-a", "a")])
+    item = document("owner-a", "a")
+    item["sizeBytes"] = Decimal("4")
+    table = FakeTable([item])
     s3 = FakeS3()
     monkeypatch.setattr(document_handler, "_documents_table", lambda: table)
     monkeypatch.setattr(document_handler, "_s3_client", lambda: s3)
@@ -166,6 +169,7 @@ def test_finalize_writes_owner_metadata_sidecar(monkeypatch: Any) -> None:
 
     sidecar = json.loads(s3.put_kwargs["Body"])
     assert response["statusCode"] == 200
+    assert json.loads(response["body"])["document"]["sizeBytes"] == 4
     assert s3.put_kwargs["Key"].endswith("source.txt.metadata.json")
     assert sidecar["metadataAttributes"] == {
         "owner_sub": "owner-a",
