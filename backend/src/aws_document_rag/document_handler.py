@@ -14,7 +14,11 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from .documents import create_document_key, validate_upload_size
-from .ingestion_metadata import metadata_sidecar_key, serialize_metadata_sidecar
+from .ingestion_metadata import (
+    MAX_INGESTION_BYTES,
+    metadata_sidecar_key,
+    serialize_metadata_sidecar,
+)
 
 
 @cache
@@ -31,6 +35,11 @@ def _s3_client() -> Any:
 @cache
 def _documents_table() -> Any:
     return boto3.resource("dynamodb").Table(os.environ["DOCUMENTS_TABLE"])
+
+
+@cache
+def _bedrock_agent() -> Any:
+    return boto3.client("bedrock-agent", region_name=os.environ["AWS_REGION"])
 
 
 def _bucket() -> str:
@@ -53,7 +62,15 @@ def _response(status: int, payload: dict[str, Any]) -> dict[str, Any]:
 def _public_document(item: dict[str, Any]) -> dict[str, Any]:
     return {
         key: item[key]
-        for key in ("documentId", "filename", "status", "createdAt", "updatedAt", "sizeBytes")
+        for key in (
+            "documentId",
+            "filename",
+            "status",
+            "createdAt",
+            "updatedAt",
+            "sizeBytes",
+            "errorCode",
+        )
         if key in item
     }
 
@@ -76,6 +93,8 @@ def documents(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             return get_document(event)
         if route == "POST /documents/{id}/finalize":
             return finalize_document(event)
+        if route == "POST /documents/{id}/ingest":
+            return ingest_document(event)
         return _response(404, {"error": "Route not found"})
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return _response(400, {"error": "Invalid document request"})
@@ -91,7 +110,40 @@ def get_document(event: dict[str, Any]) -> dict[str, Any]:
     )
     if not item:
         return _response(404, {"error": "Document not found"})
+    item = _reconcile_ingestion(item)
     return _response(200, {"document": _public_document(item)})
+
+
+def _reconcile_ingestion(item: dict[str, Any]) -> dict[str, Any]:
+    if item.get("status") != "INGESTING" or not item.get("ingestionJobId"):
+        return item
+    job = _bedrock_agent().get_ingestion_job(
+        knowledgeBaseId=os.environ["KNOWLEDGE_BASE_ID"],
+        dataSourceId=os.environ["KNOWLEDGE_BASE_DATA_SOURCE_ID"],
+        ingestionJobId=item["ingestionJobId"],
+    )["ingestionJob"]
+    mapped_status = {
+        "COMPLETE": "READY",
+        "FAILED": "FAILED",
+        "STOPPED": "FAILED",
+    }.get(job["status"], "INGESTING")
+    if mapped_status == "INGESTING":
+        return item
+    now = datetime.now(UTC).isoformat()
+    update = "SET #status = :status, updatedAt = :updated"
+    values = {":status": mapped_status, ":updated": now}
+    if mapped_status == "FAILED":
+        update += ", errorCode = :error"
+        values[":error"] = "INGESTION_FAILED"
+        item["errorCode"] = "INGESTION_FAILED"
+    _documents_table().update_item(
+        Key={"ownerId": item["ownerId"], "documentId": item["documentId"]},
+        UpdateExpression=update,
+        ExpressionAttributeNames={"#status": "status"},
+        ExpressionAttributeValues=values,
+    )
+    item.update({"status": mapped_status, "updatedAt": now})
+    return item
 
 
 def finalize_document(event: dict[str, Any]) -> dict[str, Any]:
@@ -122,6 +174,54 @@ def finalize_document(event: dict[str, Any]) -> dict[str, Any]:
     )
     item.update({"status": "UPLOADED", "updatedAt": now})
     return _response(200, {"document": _public_document(item)})
+
+
+def ingest_document(event: dict[str, Any]) -> dict[str, Any]:
+    owner = _owner(event)
+    document_id = str(event["pathParameters"]["id"])
+    table = _documents_table()
+    item = table.get_item(Key={"ownerId": owner, "documentId": document_id}).get("Item")
+    if not item:
+        return _response(404, {"error": "Document not found"})
+    if item["status"] == "READY":
+        return _response(200, {"document": _public_document(item)})
+    if item["status"] == "INGESTING":
+        return _response(409, {"error": "Document ingestion is already in progress"})
+    if item["status"] != "UPLOADED":
+        return _response(409, {"error": "Document is not ready for ingestion"})
+    if int(item.get("sizeBytes", 0)) > MAX_INGESTION_BYTES:
+        return _response(409, {"error": "Document exceeds the approved ingestion limit"})
+    try:
+        _s3_client().head_object(Bucket=_bucket(), Key=item["s3Key"])
+        _s3_client().head_object(Bucket=_bucket(), Key=metadata_sidecar_key(item["s3Key"]))
+    except ClientError as error:
+        if error.response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 404:
+            return _response(409, {"error": "Document upload is incomplete"})
+        raise
+    try:
+        job = _bedrock_agent().start_ingestion_job(
+            knowledgeBaseId=os.environ["KNOWLEDGE_BASE_ID"],
+            dataSourceId=os.environ["KNOWLEDGE_BASE_DATA_SOURCE_ID"],
+            clientToken=document_id,
+            description="Authenticated document ingestion",
+        )["ingestionJob"]
+    except ClientError as error:
+        if error.response.get("Error", {}).get("Code") == "ConflictException":
+            return _response(409, {"error": "Another ingestion is already in progress"})
+        raise
+    now = datetime.now(UTC).isoformat()
+    table.update_item(
+        Key={"ownerId": owner, "documentId": document_id},
+        UpdateExpression="SET #status = :status, ingestionJobId = :job, updatedAt = :updated",
+        ExpressionAttributeNames={"#status": "status"},
+        ExpressionAttributeValues={
+            ":status": "INGESTING",
+            ":job": job["ingestionJobId"],
+            ":updated": now,
+        },
+    )
+    item.update({"status": "INGESTING", "ingestionJobId": job["ingestionJobId"], "updatedAt": now})
+    return _response(202, {"document": _public_document(item)})
 
 
 def presign(event: dict[str, Any]) -> dict[str, Any]:

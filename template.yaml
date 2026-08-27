@@ -91,6 +91,8 @@ Resources:
         Variables:
           DOCUMENTS_BUCKET: !Ref DocumentsBucket
           DOCUMENTS_TABLE: !Ref DocumentsTable
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBase
+          KNOWLEDGE_BASE_DATA_SOURCE_ID: !GetAtt KnowledgeBaseDataSource.DataSourceId
       Policies:
         - S3WritePolicy:
             BucketName: !Ref DocumentsBucket
@@ -100,6 +102,12 @@ Resources:
               Resource: !Sub ${DocumentsBucket.Arn}/users/*
         - DynamoDBCrudPolicy:
             TableName: !Ref DocumentsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:StartIngestionJob
+                - bedrock:GetIngestionJob
+              Resource: !GetAtt KnowledgeBase.KnowledgeBaseArn
       Events:
         Presign:
           Type: HttpApi
@@ -124,6 +132,12 @@ Resources:
           Properties:
             ApiId: !Ref HttpApi
             Path: /documents/{id}/finalize
+            Method: POST
+        Ingest:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /documents/{id}/ingest
             Method: POST
 
   DocumentsBucket:

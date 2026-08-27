@@ -35,11 +35,11 @@ function App() {
       setNotice('Use a PDF, TXT, or Markdown file for this prototype.')
       return
     }
-    setNotice('Reading document locally…')
+    setNotice('Uploading and indexing your private document…')
     try {
       const document = await (cognitoConfigured ? cognitoDocumentsApi : mockDocumentsApi).upload(selectedFile)
       setDocuments((current) => [document, ...current])
-      setNotice(`${document.filename} was uploaded privately and is awaiting ingestion.`)
+      setNotice(`${document.filename} is private, indexed, and ready for grounded retrieval.`)
       setSelectedFile(null)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'The upload could not be completed.')
