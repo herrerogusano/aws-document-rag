@@ -3,4 +3,4 @@ export interface DocumentItem { id: string; filename: string; status: DocumentSt
 export interface Citation { documentId: string; filename: string; location?: string }
 export interface QueryAnswer { answer: string; citations: Citation[]; insufficientContext: boolean }
 export interface DocumentsApi { upload(file: File): Promise<DocumentItem> }
-export interface QueryApi { ask(question: string, documents: DocumentItem[]): Promise<QueryAnswer> }
+export interface QueryApi { ask(question: string, documentId?: string): Promise<QueryAnswer> }

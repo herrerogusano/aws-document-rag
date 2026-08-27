@@ -1,7 +1,7 @@
 # Progress
 
-Current phase: `7`
-Status: `phase_6_complete`
+Current phase: `8`
+Status: `phase_7_complete`
 
 ## Phase status
 
@@ -12,7 +12,7 @@ Status: `phase_6_complete`
 - [x] Phase 4 — Bedrock Knowledge Base + S3 Vectors + embeddings
 - [x] Phase 5 — Ingestion lifecycle, metadata filtering and ownership isolation
 - [x] Phase 6 — RAG query pipeline with retrieval, generation and citations
-- [ ] Phase 7 — Full-stack UX integration
+- [x] Phase 7 — Full-stack UX integration
 - [ ] Phase 8 — Security, reliability, observability and cost hardening
 - [ ] Phase 9 — Production frontend hosting and stable manual deployment
 - [ ] Phase 10 — CI/CD evolution with GitHub OIDC and automated deployment
@@ -79,6 +79,16 @@ Gate D — production frontend hosting. Phase 7 and Phase 8 may proceed before t
 - Live validation: the first Gate C query returned HTTP 200, a non-empty answer and one citation matching the READY document. No answer text or source content was logged.
 - Verification: 39 backend tests, mypy, Ruff, SAM lint/build, frontend lint, two frontend tests and the production frontend build pass.
 - Next phase: Phase 7 full-stack UX integration and browser-level validation.
+
+## Phase 7 completion
+
+- Replaced the production-path document/query adapters with one typed authenticated API client featuring request timeouts, one refresh-token retry and explicit expired-session handling.
+- Added all/one-document query scope, bounded upload/indexing progress, READY/FAILED states, query progress, insufficient-evidence presentation and citation chips.
+- Preserved a separate mock path only for credential-free local tests; configured development uses the deployed APIs.
+- Visual direction remains editorial and source-first, with corrected global CSS precedence, accessible focus states, reduced-motion support and responsive layouts.
+- Browser validation at 1280 px and 390 px confirmed the intended typography, contrast and no horizontal overflow.
+- Verification: frontend lint, six Vitest tests and production build pass; tests cover the full mock journey, typed API mapping, citations, document scope and session expiry.
+- Next phase: Phase 8 security, reliability, observability and cost hardening.
 
 ## Phase 2 completion
 

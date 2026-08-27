@@ -20,3 +20,17 @@ test('rejects an unsupported upload type', async () => {
   await user.click(screen.getByText('Add to archive'))
   expect(screen.getByText('Use a PDF, TXT, or Markdown file for this prototype.')).toBeInTheDocument()
 })
+
+test('completes the mocked upload, query, and citation flow', async () => {
+  const user = userEvent.setup()
+  render(<App />)
+  await user.click(screen.getByText('Enter demo workspace'))
+  const file = new File(['A bounded source.'], 'evidence.txt', { type: 'text/plain' })
+  await user.upload(screen.getByLabelText('Choose document'), file)
+  await user.click(screen.getByText('Add to archive'))
+  expect((await screen.findAllByText('evidence.txt')).length).toBeGreaterThan(0)
+  await user.type(screen.getByLabelText('Ask a question'), 'What is supported?')
+  await user.click(screen.getByText('Search sources'))
+  expect(await screen.findByText(/Mocked grounded response/)).toBeInTheDocument()
+  expect(screen.getByLabelText('Citations')).toHaveTextContent('Local mock source')
+})
