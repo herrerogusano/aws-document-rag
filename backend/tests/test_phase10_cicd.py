@@ -40,3 +40,10 @@ def test_cloudformation_execution_role_can_expand_only_the_sam_transform() -> No
         "arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31"
         in BOOTSTRAP
     )
+
+
+def test_deployment_rejects_missing_stack_outputs_before_publishing() -> None:
+    assert "set -euo pipefail" in WORKFLOW
+    assert "stack_output()" in WORKFLOW
+    assert 'test -n "$value"' in WORKFLOW
+    assert 'test "$value" != "None"' in WORKFLOW
