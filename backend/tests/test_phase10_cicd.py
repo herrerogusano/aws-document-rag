@@ -31,3 +31,12 @@ def test_deployment_is_serialized_and_never_runs_live_rag() -> None:
     assert "start-ingestion-job" not in WORKFLOW
     assert "bedrock-runtime" not in WORKFLOW
     assert "create-invalidation" in WORKFLOW
+
+
+def test_cloudformation_execution_role_can_expand_only_the_sam_transform() -> None:
+    assert "Sid: ExpandSamTransform" in BOOTSTRAP
+    assert "Action: cloudformation:CreateChangeSet" in BOOTSTRAP
+    assert (
+        "arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31"
+        in BOOTSTRAP
+    )
