@@ -14,9 +14,10 @@ class FakeTable:
     def query(self, **kwargs: Any) -> dict[str, Any]:
         self.last_query = kwargs["KeyConditionExpression"]
         owner = self.last_query._values[1]
-        return {
-            "Items": [item for (item_owner, _), item in self.items.items() if item_owner == owner]
-        }
+        items = [item for (item_owner, _), item in self.items.items() if item_owner == owner]
+        if kwargs.get("Select") == "COUNT":
+            return {"Count": min(len(items), int(kwargs.get("Limit", len(items))))}
+        return {"Items": items[: int(kwargs.get("Limit", len(items)))]}
 
     def get_item(self, *, Key: dict[str, str]) -> dict[str, Any]:
         item = self.items.get((Key["ownerId"], Key["documentId"]))
@@ -122,6 +123,22 @@ def test_presign_uses_server_key_and_bounded_expiration(monkeypatch: Any) -> Non
     assert s3.presign_kwargs["ExpiresIn"] == 300
 
 
+def test_presign_rejects_more_than_twenty_documents(monkeypatch: Any) -> None:
+    table = FakeTable([document("owner-a", str(index)) for index in range(20)])
+    s3 = FakeS3()
+    monkeypatch.setattr(document_handler, "_documents_table", lambda: table)
+    monkeypatch.setattr(document_handler, "_s3_client", lambda: s3)
+    request = event("POST /documents/presign")
+    request["body"] = json.dumps(
+        {"filename": "notes.txt", "sizeBytes": 4, "contentType": "text/plain"}
+    )
+
+    response = document_handler.documents(request, None)
+
+    assert response["statusCode"] == 409
+    assert s3.presign_kwargs == {}
+
+
 def test_finalize_requires_existing_private_object(monkeypatch: Any) -> None:
     table = FakeTable([document("owner-a", "a")])
     monkeypatch.setattr(document_handler, "_documents_table", lambda: table)
@@ -154,6 +171,23 @@ def test_finalize_writes_owner_metadata_sidecar(monkeypatch: Any) -> None:
         "owner_sub": "owner-a",
         "document_id": "a",
     }
+
+
+def test_finalize_never_regresses_an_ingesting_document(monkeypatch: Any) -> None:
+    item = document("owner-a", "a")
+    item["status"] = "INGESTING"
+    table = FakeTable([item])
+    s3 = FakeS3()
+    monkeypatch.setattr(document_handler, "_documents_table", lambda: table)
+    monkeypatch.setattr(document_handler, "_s3_client", lambda: s3)
+
+    response = document_handler.documents(
+        event("POST /documents/{id}/finalize", document_id="a"), None
+    )
+
+    assert response["statusCode"] == 200
+    assert table.items[("owner-a", "a")]["status"] == "INGESTING"
+    assert s3.put_kwargs == {}
 
 
 def test_dynamodb_error_is_sanitized(monkeypatch: Any) -> None:

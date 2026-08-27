@@ -17,4 +17,4 @@ def test_invalid_filename_is_rejected(filename: str) -> None:
 def test_size_is_bounded() -> None:
     validate_upload_size(1)
     with pytest.raises(ValueError):
-        validate_upload_size(5 * 1024 * 1024 + 1)
+        validate_upload_size(100 * 1024 + 1)

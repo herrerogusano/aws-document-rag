@@ -4,7 +4,8 @@ from pathlib import PurePosixPath
 from uuid import uuid4
 
 ALLOWED_EXTENSIONS = {"pdf", "txt", "md"}
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_UPLOAD_BYTES = 100 * 1024
+MAX_DOCUMENTS_PER_USER = 20
 
 
 def create_document_key(owner_sub: str, filename: str) -> tuple[str, str]:

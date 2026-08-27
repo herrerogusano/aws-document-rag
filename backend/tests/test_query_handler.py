@@ -32,6 +32,22 @@ class FakeModelRuntime:
         return {"output": {"message": {"content": [{"text": "Grounded answer."}]}}}
 
 
+class FakeUsageTable:
+    def __init__(self, exhausted: bool = False) -> None:
+        self.exhausted = exhausted
+        self.calls = 0
+
+    def update_item(self, **_kwargs: Any) -> None:
+        self.calls += 1
+        if self.exhausted:
+            from botocore.exceptions import ClientError
+
+            raise ClientError(
+                {"Error": {"Code": "ConditionalCheckFailedException"}},
+                "UpdateItem",
+            )
+
+
 def query_event(
     question: str, owner: str = "owner-a", document_id: str | None = None
 ) -> dict[str, Any]:
@@ -58,10 +74,12 @@ def configure(
     retrieval: FakeRetrievalRuntime,
     model: FakeModelRuntime,
     table: FakeTable | None = None,
+    usage: FakeUsageTable | None = None,
 ) -> None:
     monkeypatch.setattr(query_handler, "_runtime", lambda: retrieval)
     monkeypatch.setattr(query_handler, "_model_runtime", lambda: model)
     monkeypatch.setattr(query_handler, "_table", lambda: table or FakeTable([]))
+    monkeypatch.setattr(query_handler, "_usage_table", lambda: usage or FakeUsageTable())
     monkeypatch.setenv("KNOWLEDGE_BASE_ID", "knowledge-a")
     monkeypatch.setenv("GENERATION_MODEL_ID", "approved-model")
 
@@ -134,4 +152,22 @@ def test_selected_document_must_belong_to_owner_and_be_ready(monkeypatch: Any) -
 
     assert response["statusCode"] == 404
     assert retrieval.calls == []
+    assert model.calls == []
+
+
+def test_monthly_budget_rejects_generation_without_model_call(monkeypatch: Any) -> None:
+    retrieval = FakeRetrievalRuntime(
+        [
+            {
+                "content": {"text": "Owner evidence"},
+                "metadata": {"owner_sub": "owner-a", "document_id": "doc-a"},
+            }
+        ]
+    )
+    model = FakeModelRuntime()
+    configure(monkeypatch, retrieval, model, usage=FakeUsageTable(exhausted=True))
+
+    response = query_handler.query(query_event("What is supported?"), None)
+
+    assert response["statusCode"] == 429
     assert model.calls == []

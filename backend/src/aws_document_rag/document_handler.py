@@ -13,12 +13,18 @@ from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from .documents import create_document_key, validate_upload_size
+from .aws_config import STANDARD_AWS_CONFIG
+from .documents import MAX_DOCUMENTS_PER_USER, create_document_key, validate_upload_size
 from .ingestion_metadata import (
     MAX_INGESTION_BYTES,
     metadata_sidecar_key,
     serialize_metadata_sidecar,
 )
+from .observability import log_event
+
+
+class DocumentLimitError(ValueError):
+    """Raised when a development account reaches its bounded document count."""
 
 
 @cache
@@ -28,18 +34,24 @@ def _s3_client() -> Any:
         "s3",
         region_name=region,
         endpoint_url=f"https://s3.{region}.amazonaws.com",
-        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+        config=STANDARD_AWS_CONFIG.merge(
+            Config(signature_version="s3v4", s3={"addressing_style": "virtual"})
+        ),
     )
 
 
 @cache
 def _documents_table() -> Any:
-    return boto3.resource("dynamodb").Table(os.environ["DOCUMENTS_TABLE"])
+    return boto3.resource("dynamodb", config=STANDARD_AWS_CONFIG).Table(
+        os.environ["DOCUMENTS_TABLE"]
+    )
 
 
 @cache
 def _bedrock_agent() -> Any:
-    return boto3.client("bedrock-agent", region_name=os.environ["AWS_REGION"])
+    return boto3.client(
+        "bedrock-agent", region_name=os.environ["AWS_REGION"], config=STANDARD_AWS_CONFIG
+    )
 
 
 def _bucket() -> str:
@@ -75,7 +87,7 @@ def _public_document(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def documents(event: dict[str, Any], _context: Any) -> dict[str, Any]:
+def documents(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Dispatch authenticated document routes without accepting an owner from the client."""
     try:
         route = event.get("routeKey")
@@ -85,10 +97,14 @@ def documents(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             owner = _owner(event)
             records = (
                 _documents_table()
-                .query(KeyConditionExpression=Key("ownerId").eq(owner))
+                .query(
+                    KeyConditionExpression=Key("ownerId").eq(owner), Limit=MAX_DOCUMENTS_PER_USER
+                )
                 .get("Items", [])
             )
-            return _response(200, {"documents": [_public_document(item) for item in records]})
+            response = _response(200, {"documents": [_public_document(item) for item in records]})
+            log_event("documents_listed", event, context, statusCode=200, count=len(records))
+            return response
         if route == "GET /documents/{id}":
             return get_document(event)
         if route == "POST /documents/{id}/finalize":
@@ -96,9 +112,14 @@ def documents(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         if route == "POST /documents/{id}/ingest":
             return ingest_document(event)
         return _response(404, {"error": "Route not found"})
+    except DocumentLimitError:
+        log_event("document_limit_rejected", event, context, statusCode=409)
+        return _response(409, {"error": "Document limit reached"})
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        log_event("document_request_rejected", event, context, statusCode=400)
         return _response(400, {"error": "Invalid document request"})
     except ClientError:
+        log_event("document_service_error", event, context, statusCode=503)
         return _response(503, {"error": "Document service temporarily unavailable"})
 
 
@@ -153,6 +174,10 @@ def finalize_document(event: dict[str, Any]) -> dict[str, Any]:
     item = table.get_item(Key={"ownerId": owner, "documentId": document_id}).get("Item")
     if not item:
         return _response(404, {"error": "Document not found"})
+    if item.get("status") in {"UPLOADED", "INGESTING", "READY"}:
+        return _response(200, {"document": _public_document(item)})
+    if item.get("status") != "PENDING_UPLOAD":
+        return _response(409, {"error": "Document cannot be finalized"})
     try:
         _s3_client().head_object(Bucket=_bucket(), Key=item["s3Key"])
     except ClientError as error:
@@ -231,6 +256,17 @@ def presign(event: dict[str, Any]) -> dict[str, Any]:
     size = int(body.get("sizeBytes", 0))
     content_type = str(body.get("contentType") or "application/octet-stream")
     validate_upload_size(size)
+    count = (
+        _documents_table()
+        .query(
+            KeyConditionExpression=Key("ownerId").eq(owner),
+            Select="COUNT",
+            Limit=MAX_DOCUMENTS_PER_USER,
+        )
+        .get("Count", 0)
+    )
+    if int(count) >= MAX_DOCUMENTS_PER_USER:
+        raise DocumentLimitError
     document_id, key = create_document_key(owner, filename)
     now = datetime.now(UTC).isoformat()
     _documents_table().put_item(
