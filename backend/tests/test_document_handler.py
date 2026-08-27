@@ -26,7 +26,13 @@ class FakeTable:
         self.items[(Item["ownerId"], Item["documentId"])] = Item
 
     def update_item(self, *, Key: dict[str, str], **_kwargs: Any) -> None:
-        self.items[(Key["ownerId"], Key["documentId"])]["status"] = "UPLOADED"
+        item = self.items[(Key["ownerId"], Key["documentId"])]
+        values = _kwargs["ExpressionAttributeValues"]
+        item["status"] = values[":status"]
+        if ":job" in values:
+            item["ingestionJobId"] = values[":job"]
+        if ":error" in values:
+            item["errorCode"] = values[":error"]
 
 
 class FakeS3:
@@ -48,6 +54,19 @@ class FakeS3:
 
     def put_object(self, **kwargs: Any) -> None:
         self.put_kwargs = kwargs
+
+
+class FakeBedrockAgent:
+    def __init__(self, status: str = "IN_PROGRESS") -> None:
+        self.status = status
+        self.start_calls = 0
+
+    def start_ingestion_job(self, **_kwargs: Any) -> dict[str, Any]:
+        self.start_calls += 1
+        return {"ingestionJob": {"ingestionJobId": "job-a", "status": "STARTING"}}
+
+    def get_ingestion_job(self, **_kwargs: Any) -> dict[str, Any]:
+        return {"ingestionJob": {"ingestionJobId": "job-a", "status": self.status}}
 
 
 def event(route: str, owner: str = "owner-a", document_id: str | None = None) -> dict[str, Any]:
@@ -147,3 +166,64 @@ def test_dynamodb_error_is_sanitized(monkeypatch: Any) -> None:
 
     assert response["statusCode"] == 503
     assert "InternalError" not in response["body"]
+
+
+def test_ingestion_is_owner_scoped_and_not_started_twice(monkeypatch: Any) -> None:
+    item = document("owner-a", "a")
+    item["status"] = "UPLOADED"
+    table = FakeTable([item])
+    bedrock = FakeBedrockAgent()
+    monkeypatch.setattr(document_handler, "_documents_table", lambda: table)
+    monkeypatch.setattr(document_handler, "_s3_client", lambda: FakeS3())
+    monkeypatch.setattr(document_handler, "_bedrock_agent", lambda: bedrock)
+    monkeypatch.setattr(document_handler, "_bucket", lambda: "private-bucket")
+    monkeypatch.setenv("KNOWLEDGE_BASE_ID", "knowledge-a")
+    monkeypatch.setenv("KNOWLEDGE_BASE_DATA_SOURCE_ID", "source-a")
+
+    started = document_handler.documents(
+        event("POST /documents/{id}/ingest", document_id="a"), None
+    )
+    duplicate = document_handler.documents(
+        event("POST /documents/{id}/ingest", document_id="a"), None
+    )
+    other_owner = document_handler.documents(
+        event("POST /documents/{id}/ingest", owner="owner-b", document_id="a"), None
+    )
+
+    assert started["statusCode"] == 202
+    assert duplicate["statusCode"] == 409
+    assert other_owner["statusCode"] == 404
+    assert bedrock.start_calls == 1
+
+
+def test_status_reconciliation_maps_complete_to_ready(monkeypatch: Any) -> None:
+    item = document("owner-a", "a")
+    item.update({"status": "INGESTING", "ingestionJobId": "job-a"})
+    table = FakeTable([item])
+    monkeypatch.setattr(document_handler, "_documents_table", lambda: table)
+    monkeypatch.setattr(
+        document_handler, "_bedrock_agent", lambda: FakeBedrockAgent(status="COMPLETE")
+    )
+    monkeypatch.setenv("KNOWLEDGE_BASE_ID", "knowledge-a")
+    monkeypatch.setenv("KNOWLEDGE_BASE_DATA_SOURCE_ID", "source-a")
+
+    response = document_handler.documents(event("GET /documents/{id}", document_id="a"), None)
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"])["document"]["status"] == "READY"
+
+
+def test_ingestion_rejects_document_above_approved_limit(monkeypatch: Any) -> None:
+    item = document("owner-a", "a")
+    item.update({"status": "UPLOADED", "sizeBytes": 100 * 1024 + 1})
+    table = FakeTable([item])
+    bedrock = FakeBedrockAgent()
+    monkeypatch.setattr(document_handler, "_documents_table", lambda: table)
+    monkeypatch.setattr(document_handler, "_bedrock_agent", lambda: bedrock)
+
+    response = document_handler.documents(
+        event("POST /documents/{id}/ingest", document_id="a"), None
+    )
+
+    assert response["statusCode"] == 409
+    assert bedrock.start_calls == 0

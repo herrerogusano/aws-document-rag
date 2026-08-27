@@ -1,7 +1,7 @@
 # Progress
 
-Current phase: `5`
-Status: `in_progress`
+Current phase: `6`
+Status: `preparing_gate_c`
 
 ## Phase status
 
@@ -10,7 +10,7 @@ Status: `in_progress`
 - [x] Phase 2 — Cognito authentication and protected API skeleton
 - [x] Phase 3 — Secure document upload with S3 + DynamoDB metadata
 - [x] Phase 4 — Bedrock Knowledge Base + S3 Vectors + embeddings
-- [ ] Phase 5 — Ingestion lifecycle, metadata filtering and ownership isolation
+- [x] Phase 5 — Ingestion lifecycle, metadata filtering and ownership isolation
 - [ ] Phase 6 — RAG query pipeline with retrieval, generation and citations
 - [ ] Phase 7 — Full-stack UX integration
 - [ ] Phase 8 — Security, reliability, observability and cost hardening
@@ -27,6 +27,7 @@ Status: `in_progress`
 - Phase 2 completion: the real Authorization Code + PKCE browser flow completed and the local frontend confirmed that `/me` accepted its JWT; no token was logged or stored outside browser session storage.
 - Phase 3: all offline checks pass (Ruff, mypy, 13 pytest tests, SAM lint/build, frontend lint, 2 Vitest tests and production build). A real authenticated TXT upload completed through a regional presigned URL; private S3 object, Cognito owner match, list persistence and lifecycle status were verified.
 - Phase 4: Gate B approved; one Knowledge Base, S3 data source and private SSE-S3 vector bucket/index deployed in `eu-west-1`. One sub-10-KiB document ingested and one owner-filtered retrieval returned one result with matching owner/document metadata. No generation occurred.
+- Phase 5: 29 backend tests pass with owner mismatch, duplicate ingestion, state reconciliation, size-bound and two-owner retrieval-isolation coverage. The deployed lifecycle reconciled the approved document to `READY` without an additional ingestion job.
 
 ## Pending gate
 
@@ -59,6 +60,15 @@ Gate C — First real generative RAG call (`pending`). Phases 5 and retrieval-on
 - Live validation: one document scanned/indexed successfully; one retrieval-only call returned one result and its sanitized metadata matched both expected identifiers.
 - Deployment note: the first vector-bucket attempt rolled back because the generated name used a reserved prefix; a bounded explicit name fixed the issue and the second deployment completed.
 - Next phase: Phase 5 ingestion lifecycle, status reconciliation and multi-owner isolation tests.
+
+## Phase 5 completion
+
+- API lifecycle: authenticated finalize writes the server-owned metadata sidecar; authenticated ingest verifies owner, source object, sidecar, status and the approved 100-KiB ceiling before starting an idempotent job.
+- State machine: `PENDING_UPLOAD → UPLOADED → INGESTING → READY`, with sanitized `FAILED` reconciliation and bounded status polling.
+- Reliability: duplicate starts return conflict, completed documents are idempotent, incomplete uploads are rejected, Bedrock/DynamoDB details are not exposed and polling does not restart ingestion.
+- Isolation: owner always comes from JWT `sub`; document reads combine owner and document ID; retrieval configuration cannot be built without the exact owner filter. Offline tests include distinct owner-A and owner-B documents.
+- Live validation: the already approved ingestion job was reconciled through the deployed Lambda and the document metadata transitioned to `READY`; no second ingestion was started.
+- Next phase: Phase 6 retrieval and cited generation. Gate C pricing/model bounds must be documented before the first generative call.
 
 ## Phase 2 completion
 

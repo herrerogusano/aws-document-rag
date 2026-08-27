@@ -5,19 +5,38 @@ function sizeLabel(sizeBytes: number): string {
   return `${Math.max(1, Math.ceil(sizeBytes / 1024))} KB`
 }
 
+type ApiDocument = { documentId: string; filename: string; status: DocumentStatus; sizeBytes?: number }
+
+function mapApiDocument(document: ApiDocument): DocumentItem {
+  return {
+    id: document.documentId,
+    filename: document.filename,
+    status: document.status,
+    sizeLabel: sizeLabel(document.sizeBytes ?? 0),
+  }
+}
+
 export async function listCognitoDocuments(): Promise<DocumentItem[]> {
   const token = accessToken()
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
   if (!token || !apiBaseUrl) return []
   const response = await fetch(`${apiBaseUrl}/documents`, { headers: { authorization: `Bearer ${token}` } })
   if (!response.ok) throw new Error('Could not load your private documents.')
-  const payload: { documents: Array<{ documentId: string; filename: string; status: DocumentStatus; sizeBytes?: number }> } = await response.json()
-  return payload.documents.map((document) => ({
-    id: document.documentId,
-    filename: document.filename,
-    status: document.status,
-    sizeLabel: sizeLabel(document.sizeBytes ?? 0),
-  }))
+  const payload: { documents: ApiDocument[] } = await response.json()
+  return payload.documents.map(mapApiDocument)
+}
+
+async function waitForReady(apiBaseUrl: string, token: string, documentId: string): Promise<DocumentItem> {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const response = await fetch(`${apiBaseUrl}/documents/${documentId}`, { headers: { authorization: `Bearer ${token}` } })
+    if (!response.ok) throw new Error('Could not read ingestion status.')
+    const payload: { document: ApiDocument } = await response.json()
+    const document = mapApiDocument(payload.document)
+    if (document.status === 'READY') return document
+    if (document.status === 'FAILED') throw new Error('Document ingestion failed safely.')
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+  throw new Error('Document ingestion is still running; its status will remain available.')
 }
 
 export const mockDocumentsApi: DocumentsApi = { async upload(file) { return { id: crypto.randomUUID(), filename: file.name, status: 'READY', sizeLabel: sizeLabel(file.size) } } }
@@ -44,5 +63,7 @@ export const cognitoDocumentsApi: DocumentsApi = { async upload(file): Promise<D
   if (!uploaded.ok) throw new Error('The private upload failed.')
   const finalized = await fetch(`${apiBaseUrl}/documents/${prepared.documentId}/finalize`, { method: 'POST', headers: { authorization: `Bearer ${token}` } })
   if (!finalized.ok) throw new Error('The upload arrived but could not be finalized.')
-  return { id: prepared.documentId, filename: file.name, status: 'UPLOADED', sizeLabel: sizeLabel(file.size) }
+  const ingestion = await fetch(`${apiBaseUrl}/documents/${prepared.documentId}/ingest`, { method: 'POST', headers: { authorization: `Bearer ${token}` } })
+  if (!ingestion.ok) throw new Error('The upload arrived but ingestion could not start.')
+  return waitForReady(apiBaseUrl, token, prepared.documentId)
 } }

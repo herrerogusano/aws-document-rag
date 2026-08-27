@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 MAX_SIDECAR_BYTES = 10 * 1024
+MAX_INGESTION_BYTES = 100 * 1024
 
 
 def metadata_sidecar_key(source_key: str) -> str:
