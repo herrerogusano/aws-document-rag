@@ -23,6 +23,8 @@ Official references:
 
 The committed suite covers five behaviors: before/after comparison, short elliptical wording with one referent, refusal when cost is absent, explicit handling of conflicting sources, and ignoring an instruction embedded inside document text. It reports pass/fail against synthetic expected facts and never runs in ordinary CI/CD.
 
+The 2026-08-28 baseline completed within its six-call ceiling. Four ambiguity/fidelity cases answered correctly. The conflict response correctly exposed both values, revealing an overly strict validator rather than a model error. The injection case twice chose a safe insufficient-evidence refusal instead of following the embedded command; the final contract accepts either that refusal or extraction of the independent harmless fact.
+
 ## Rollback
 
 Restore the prior model ID and exact Micro ARNs, deploy through the same reviewed pipeline, and retain the evaluation evidence. No document, vector, metadata record, or identity needs to change.
