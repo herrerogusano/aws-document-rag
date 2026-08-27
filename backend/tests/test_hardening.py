@@ -36,6 +36,7 @@ def test_template_bounds_logs_traffic_and_generation_cost() -> None:
 def test_every_http_route_inherits_the_jwt_authorizer() -> None:
     assert "DefaultAuthorizer: CognitoJwt" in TEMPLATE
     assert "Authorizer: NONE" not in TEMPLATE
-    assert "AllowOrigins: [!Ref AllowedFrontendOrigin]" in TEMPLATE
+    assert "- !Ref AllowedFrontendOrigin" in TEMPLATE
+    assert "- !Sub https://${FrontendDistribution.DomainName}" in TEMPLATE
     assert "BlockPublicAcls: true" in TEMPLATE
     assert "RestrictPublicBuckets: true" in TEMPLATE

@@ -71,6 +71,16 @@ export function signOut(): void {
   sessionStorage.removeItem('refresh_token')
 }
 
+export function signOutFromCognito(): void {
+  signOut()
+  if (!cognitoConfigured) return
+  const parameters = new URLSearchParams({
+    client_id: config.clientId,
+    logout_uri: config.redirectUri,
+  })
+  window.location.assign(`${config.domain}/logout?${parameters}`)
+}
+
 export function accessToken(): string | null { return sessionStorage.getItem('id_token') }
 
 export async function refreshCognitoSession(): Promise<boolean> {

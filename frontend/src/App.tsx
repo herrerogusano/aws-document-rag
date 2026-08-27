@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { documentsApi, listDocuments, queryApi } from './api'
-import { cognitoConfigured, completeCognitoLogin, restoreCognitoSession, signOut, startCognitoLogin } from './auth'
+import { cognitoConfigured, completeCognitoLogin, restoreCognitoSession, signOut, signOutFromCognito, startCognitoLogin } from './auth'
 import type { Citation, DocumentItem, QueryAnswer } from './contracts'
 import { mockDocumentsApi, mockQueryApi } from './mocks'
 import './App.css'
@@ -98,7 +98,8 @@ function App() {
   }
 
   function leaveWorkspace(): void {
-    signOut()
+    if (cognitoConfigured) signOutFromCognito()
+    else signOut()
     setSignedIn(false)
     setDocuments([])
     setAnswer(null)
