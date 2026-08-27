@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  AWS Document RAG. Phase 0 intentionally defines no AWS resources.
+
+Metadata:
+  Project: aws-document-rag
+  Phase: "0-bootstrap-ci"
+
+Parameters:
+  EnableInfrastructure:
+    Type: String
+    Default: "false"
+    AllowedValues: ["false", "true"]
+    Description: Reserved for later phases; never enable in Phase 0.
+
+Conditions:
+  CreateInfrastructure: !Equals [!Ref EnableInfrastructure, "true"]
+
+Resources:
+  BootstrapPlaceholder:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Condition: CreateInfrastructure
