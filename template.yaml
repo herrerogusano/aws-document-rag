@@ -1,23 +1,97 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: >-
-  AWS Document RAG. Phase 0 intentionally defines no AWS resources.
-
-Metadata:
-  Project: aws-document-rag
-  Phase: "0-bootstrap-ci"
+Description: AWS Document RAG — Phase 2 authentication baseline (not deployed).
 
 Parameters:
-  EnableInfrastructure:
+  AllowedFrontendOrigin:
     Type: String
-    Default: "false"
-    AllowedValues: ["false", "true"]
-    Description: Reserved for later phases; never enable in Phase 0.
+    Default: http://localhost:5173
+    Description: Exact local origin permitted for browser requests in development.
 
-Conditions:
-  CreateInfrastructure: !Equals [!Ref EnableInfrastructure, "true"]
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures: [arm64]
+    Timeout: 10
+    MemorySize: 256
+    Tracing: Disabled
 
 Resources:
-  BootstrapPlaceholder:
-    Type: AWS::CloudFormation::WaitConditionHandle
-    Condition: CreateInfrastructure
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: aws-document-rag-users
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: aws-document-rag-spa
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email]
+      CallbackURLs: [!Ref AllowedFrontendOrigin]
+      LogoutURLs: [!Ref AllowedFrontendOrigin]
+      SupportedIdentityProviders: [COGNITO]
+      PreventUserExistenceErrors: ENABLED
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub docrag-dev-${AWS::AccountId}
+      ManagedLoginVersion: 1
+      UserPoolId: !Ref UserPool
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref AllowedFrontendOrigin]
+        AllowHeaders: [authorization, content-type]
+        AllowMethods: [GET]
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              audience: [!Ref UserPoolClient]
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+        DefaultAuthorizer: CognitoJwt
+
+  MeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/src/
+      Handler: aws_document_rag.auth_handler.me
+      Events:
+        Me:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /me
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Description: HTTP API base URL after an approved deployment.
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  UserPoolId:
+    Description: Cognito user pool identifier after an approved deployment.
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: Public SPA client identifier after an approved deployment.
+    Value: !Ref UserPoolClient
+  ManagedLoginUrl:
+    Description: Cognito managed login base URL after an approved deployment.
+    Value: !Sub https://docrag-dev-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com

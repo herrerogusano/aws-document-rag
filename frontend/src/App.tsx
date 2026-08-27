@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { cognitoConfigured, completeCognitoLogin, signOut, startCognitoLogin } from './auth'
 import type { Citation, DocumentItem, QueryAnswer } from './contracts'
 import { mockDocumentsApi, mockQueryApi } from './mocks'
 import './App.css'
@@ -16,6 +17,12 @@ function App() {
   const [notice, setNotice] = useState('Choose a document to begin a private research session.')
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<QueryAnswer | null>(null)
+
+  useEffect(() => {
+    completeCognitoLogin().then((session) => {
+      if (session) { setSignedIn(true); setNotice('Signed in with Cognito; the protected API accepted your JWT.') }
+    }).catch((error: unknown) => setNotice(error instanceof Error ? error.message : 'Sign-in failed.'))
+  }, [])
 
   async function uploadDocument(): Promise<void> {
     if (!selectedFile) return
@@ -45,15 +52,15 @@ function App() {
         <p className="eyebrow">PRIVATE DOCUMENT RESEARCH</p>
         <h1>Find the proof.<br />Keep it yours.</h1>
         <p className="lede">A local prototype for grounded answers, designed around document ownership from the first screen.</p>
-        <button className="primary" onClick={() => setSignedIn(true)}>Enter demo workspace <span>→</span></button>
-        <p className="fine-print">Mock sign-in only · No document leaves this browser in Phase 1</p>
+        <button className="primary" onClick={() => cognitoConfigured ? void startCognitoLogin() : setSignedIn(true)}>{cognitoConfigured ? 'Sign in securely' : 'Enter demo workspace'} <span>→</span></button>
+        <p className="fine-print">{cognitoConfigured ? 'Cognito · Authorization Code + PKCE' : 'Mock sign-in only · No document leaves this browser in Phase 1'}</p>
       </main>
     )
   }
 
   return (
     <main className="workspace">
-      <header><a className="wordmark" href="#top">ARCHIVE / <em>RAG</em></a><button className="text-button" onClick={() => setSignedIn(false)}>Sign out</button></header>
+      <header><a className="wordmark" href="#top">ARCHIVE / <em>RAG</em></a><button className="text-button" onClick={() => { signOut(); setSignedIn(false) }}>Sign out</button></header>
       <section className="masthead" id="top"><div><p className="eyebrow">YOUR RESEARCH DESK</p><h1>Ask only what your documents can answer.</h1></div><p className="status">● LOCAL MODE<br /><span>Mocked, source-grounded</span></p></section>
       <p className="notice" role="status">{notice}</p>
       <div className="desk-grid">

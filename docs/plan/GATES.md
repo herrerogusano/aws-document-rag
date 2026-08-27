@@ -4,7 +4,7 @@ Codex must keep this file current.
 
 ## Gate A — First AWS deployment
 
-Status: `pending`
+Status: `approved_and_deployed_2026-08-27`
 
 Before first real AWS deployment, show:
 - resources to be created;

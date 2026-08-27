@@ -24,3 +24,10 @@ npm run build
 ```
 
 These checks are offline: they neither authenticate to AWS nor invoke Bedrock.
+
+## Local Cognito configuration
+
+Copy `.env.example` to `.env.local` inside `frontend/` and set only public configuration values.
+The local file is ignored by Git. Run `npm run dev` from `frontend/`, then use the Cognito
+Hosted UI flow. The app uses Authorization Code + PKCE and validates the resulting JWT against
+the protected `/me` endpoint without printing tokens.
