@@ -72,7 +72,7 @@ def _response(status: int, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _public_document(item: dict[str, Any]) -> dict[str, Any]:
-    return {
+    document = {
         key: item[key]
         for key in (
             "documentId",
@@ -85,6 +85,9 @@ def _public_document(item: dict[str, Any]) -> dict[str, Any]:
         )
         if key in item
     }
+    if "sizeBytes" in document:
+        document["sizeBytes"] = int(document["sizeBytes"])
+    return document
 
 
 def documents(event: dict[str, Any], context: Any) -> dict[str, Any]:
