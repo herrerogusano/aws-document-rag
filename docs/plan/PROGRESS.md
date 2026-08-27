@@ -1,7 +1,7 @@
 # Progress
 
-Current phase: `9`
-Status: `phase_8_complete`
+Current phase: `10`
+Status: `phase_9_complete`
 
 ## Phase status
 
@@ -14,7 +14,7 @@ Status: `phase_8_complete`
 - [x] Phase 6 — RAG query pipeline with retrieval, generation and citations
 - [x] Phase 7 — Full-stack UX integration
 - [x] Phase 8 — Security, reliability, observability and cost hardening
-- [ ] Phase 9 — Production frontend hosting and stable manual deployment
+- [x] Phase 9 — Production frontend hosting and stable manual deployment
 - [ ] Phase 10 — CI/CD evolution with GitHub OIDC and automated deployment
 - [ ] Phase 11 — Demo, portfolio documentation, interview preparation and closure
 
@@ -99,6 +99,18 @@ Gate D — production frontend hosting. Phase 7 and Phase 8 may proceed before t
 - The first concurrency-reservation deployment rolled back because of the account quota; removing that unsupported reservation allowed the bounded controls to deploy successfully.
 - Verification: 45 backend tests, mypy, Ruff, SAM lint/build, six frontend tests, frontend lint/build and live post-deployment checks pass.
 - Next phase: Gate D report and production-like frontend hosting.
+
+## Phase 9 completion
+
+- Gate D: approved on 2026-08-27 within `GATE_D_REPORT.md` through the user's explicit autonomous-gate delegation.
+- Deployed one CloudFront distribution with HTTPS redirect/TLS 1.2+, OAC-signed access to a separate encrypted private S3 artifact bucket, exact source-ARN bucket policy, SPA fallback, cache policy and security headers.
+- Cognito callback/logout, API CORS and document upload CORS now include the exact generated CloudFront origin while retaining localhost development.
+- Built the frontend from public stack outputs, uploaded hashed assets as immutable and `index.html` as no-cache, then submitted one bounded invalidation. No object deletion occurred.
+- Live smoke validation returned HTTPS 200, referenced the production bundle, included CSP/HSTS/content-type/frame headers, confirmed direct unsigned S3 returned 403, all four public-access blocks were true, auth callbacks/logout and API CORS matched, and CloudFront/stack were deployed/complete.
+- `scripts/deploy-frontend.ps1` and `docs/manual-deployment.md` define the repeatable non-destructive manual path and rollback.
+- The full backend lifecycle and bounded cited generation were already validated in Phases 3–8; hosting introduced no extra ingestion or model call.
+- Verification: 48 backend tests, SAM lint/build, frontend lint, six tests/build, PowerShell parse check and live hosting checks pass.
+- Next phase: Gate E report, GitHub OIDC bootstrap and first automatic deployment.
 
 ## Phase 2 completion
 

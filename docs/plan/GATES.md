@@ -47,7 +47,9 @@ Before invoking the generation model on real/synthetic retrieved data, show:
 
 ## Gate D — Production-like frontend hosting
 
-Status: `pending`
+Status: `approved_2026-08-27_bounded_via_explicit_delegation`
+
+Approved envelope: one private encrypted S3 artifact bucket, one CloudFront distribution using OAC and the default HTTPS certificate, one exact bucket policy, cache/security header policies, and exact CloudFront callback/CORS additions. See `GATE_D_REPORT.md`. No custom domain, Route 53, ACM, WAF or edge compute.
 
 Before creating/activating CloudFront/S3 hosting resources, show resources, security model, current pricing assumptions and teardown.
 

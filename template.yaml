@@ -44,8 +44,12 @@ Resources:
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthFlows: [code]
       AllowedOAuthScopes: [openid, email]
-      CallbackURLs: [!Ref AllowedFrontendOrigin]
-      LogoutURLs: [!Ref AllowedFrontendOrigin]
+      CallbackURLs:
+        - !Ref AllowedFrontendOrigin
+        - !Sub https://${FrontendDistribution.DomainName}/
+      LogoutURLs:
+        - !Ref AllowedFrontendOrigin
+        - !Sub https://${FrontendDistribution.DomainName}/
       SupportedIdentityProviders: [COGNITO]
       PreventUserExistenceErrors: ENABLED
 
@@ -66,7 +70,9 @@ Resources:
         ThrottlingBurstLimit: 10
         ThrottlingRateLimit: 5
       CorsConfiguration:
-        AllowOrigins: [!Ref AllowedFrontendOrigin]
+        AllowOrigins:
+          - !Ref AllowedFrontendOrigin
+          - !Sub https://${FrontendDistribution.DomainName}
         AllowHeaders: [authorization, content-type]
         AllowMethods: [GET, POST]
         MaxAge: 600
@@ -216,7 +222,9 @@ Resources:
         CorsRules:
           - AllowedHeaders: [content-type]
             AllowedMethods: [PUT]
-            AllowedOrigins: [!Ref AllowedFrontendOrigin]
+            AllowedOrigins:
+              - !Ref AllowedFrontendOrigin
+              - !Sub https://${FrontendDistribution.DomainName}
             MaxAge: 300
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -253,6 +261,127 @@ Resources:
           KeyType: HASH
         - AttributeName: period
           KeyType: RANGE
+
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  FrontendOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: Signed read-only access to the private frontend origin.
+        Name: !Sub aws-document-rag-${AWS::AccountId}
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub aws-document-rag-static-${AWS::AccountId}
+        Comment: Static SPA cache honoring origin cache-control bounds.
+        DefaultTTL: 86400
+        MaxTTL: 31536000
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  FrontendResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub aws-document-rag-security-${AWS::AccountId}
+        Comment: Browser security headers for the public SPA shell.
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: "default-src 'self'; connect-src 'self' https://*.amazonaws.com https://*.amazoncognito.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.amazoncognito.com"
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: same-origin
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Override: true
+
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Private-origin production frontend for AWS Document RAG.
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 0
+            ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCachingMinTTL: 0
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachePolicyId: !Ref FrontendCachePolicy
+          Compress: true
+          ResponseHeadersPolicyId: !Ref FrontendResponseHeadersPolicy
+          TargetOriginId: private-frontend-s3
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Origins:
+          - DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            Id: private-frontend-s3
+            OriginAccessControlId: !Ref FrontendOriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          MinimumProtocolVersion: TLSv1.2_2021
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ReadOnlyFromExactCloudFrontDistribution
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${FrontendBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}
 
   VectorBucket:
     Type: AWS::S3Vectors::VectorBucket
@@ -376,3 +505,12 @@ Outputs:
   KnowledgeBaseDataSourceId:
     Description: Bedrock data source identifier.
     Value: !GetAtt KnowledgeBaseDataSource.DataSourceId
+  FrontendUrl:
+    Description: Production-like HTTPS frontend URL.
+    Value: !Sub https://${FrontendDistribution.DomainName}
+  FrontendBucketName:
+    Description: Private frontend artifact bucket for manual deployment.
+    Value: !Ref FrontendBucket
+  FrontendDistributionId:
+    Description: CloudFront distribution ID for bounded invalidations.
+    Value: !Ref FrontendDistribution
