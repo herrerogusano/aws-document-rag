@@ -34,7 +34,7 @@ Before creation or first real ingestion, show:
 
 Status: `approved_2026-08-27_bounded_via_explicit_delegation`
 
-Approved envelope: Nova Micro EU inference profile, at most five owner-filtered chunks, 1,000 question characters, 2,000 characters per chunk, 256 output tokens, one invocation with no retry, first approved document validation and at most 100 development queries. See `GATE_C_REPORT.md`.
+Approved envelope: Nova Lite EU inference profile, at most five owner-filtered chunks, 1,000 question characters, 2,000 characters per chunk, 256 output tokens, one invocation with no retry and at most 100 development queries. See `GATE_C_REPORT.md` and `GATE_C_NOVA_LITE_ADDENDUM.md`.
 
 Before invoking the generation model on real/synthetic retrieved data, show:
 - chosen model/model ID;

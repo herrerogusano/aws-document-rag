@@ -10,7 +10,8 @@ def test_query_route_is_authenticated_by_default() -> None:
 
 
 def test_generation_permission_is_bounded_to_approved_model() -> None:
-    assert "GENERATION_MODEL_ID: eu.amazon.nova-micro-v1:0" in TEMPLATE
+    assert "GENERATION_MODEL_ID: eu.amazon.nova-lite-v1:0" in TEMPLATE
+    assert "amazon.nova-micro-v1:0" not in TEMPLATE
     assert "bedrock:InvokeModel" in TEMPLATE
     assert "bedrock:*" not in TEMPLATE
     assert 'Resource: "*"' not in TEMPLATE

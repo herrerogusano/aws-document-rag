@@ -181,7 +181,7 @@ Resources:
           DOCUMENTS_TABLE: !Ref DocumentsTable
           USAGE_TABLE: !Ref UsageTable
           KNOWLEDGE_BASE_ID: !Ref KnowledgeBase
-          GENERATION_MODEL_ID: eu.amazon.nova-micro-v1:0
+          GENERATION_MODEL_ID: eu.amazon.nova-lite-v1:0
       Policies:
         - Statement:
             - Sid: ReadOnlyDocumentMetadata
@@ -200,11 +200,11 @@ Resources:
               Effect: Allow
               Action: bedrock:InvokeModel
               Resource:
-                - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.amazon.nova-micro-v1:0
-                - !Sub arn:${AWS::Partition}:bedrock:eu-central-1::foundation-model/amazon.nova-micro-v1:0
-                - !Sub arn:${AWS::Partition}:bedrock:eu-north-1::foundation-model/amazon.nova-micro-v1:0
-                - !Sub arn:${AWS::Partition}:bedrock:eu-west-1::foundation-model/amazon.nova-micro-v1:0
-                - !Sub arn:${AWS::Partition}:bedrock:eu-west-3::foundation-model/amazon.nova-micro-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.amazon.nova-lite-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:eu-central-1::foundation-model/amazon.nova-lite-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:eu-west-1::foundation-model/amazon.nova-lite-v1:0
+                - !Sub arn:${AWS::Partition}:bedrock:eu-west-3::foundation-model/amazon.nova-lite-v1:0
       Events:
         Query:
           Type: HttpApi
