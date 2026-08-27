@@ -38,5 +38,5 @@ strict = true
 files = ["backend/src", "backend/tests"]
 
 [[tool.mypy.overrides]]
-module = ["boto3"]
+module = ["boto3", "boto3.*", "botocore", "botocore.*"]
 ignore_missing_imports = true
