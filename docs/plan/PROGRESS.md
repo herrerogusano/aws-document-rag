@@ -1,7 +1,7 @@
 # Progress
 
-Current phase: `10`
-Status: `phase_9_complete`
+Current phase: `11`
+Status: `project_complete`
 
 ## Phase status
 
@@ -15,8 +15,8 @@ Status: `phase_9_complete`
 - [x] Phase 7 — Full-stack UX integration
 - [x] Phase 8 — Security, reliability, observability and cost hardening
 - [x] Phase 9 — Production frontend hosting and stable manual deployment
-- [ ] Phase 10 — CI/CD evolution with GitHub OIDC and automated deployment
-- [ ] Phase 11 — Demo, portfolio documentation, interview preparation and closure
+- [x] Phase 10 — CI/CD evolution with GitHub OIDC and automated deployment
+- [x] Phase 11 — Demo, portfolio documentation, interview preparation and closure
 
 ## Last completed checks
 
@@ -31,7 +31,7 @@ Status: `phase_9_complete`
 
 ## Pending gate
 
-Gate D — production frontend hosting. Phase 7 and Phase 8 may proceed before that gate.
+No implementation gate is pending. Gate F still applies to any future exact destructive cleanup; no data or AWS resource was deleted during closeout.
 
 ## Decisions that affect later phases
 
@@ -111,6 +111,20 @@ Gate D — production frontend hosting. Phase 7 and Phase 8 may proceed before t
 - The full backend lifecycle and bounded cited generation were already validated in Phases 3–8; hosting introduced no extra ingestion or model call.
 - Verification: 48 backend tests, SAM lint/build, frontend lint, six tests/build, PowerShell parse check and live hosting checks pass.
 - Next phase: Gate E report, GitHub OIDC bootstrap and first automatic deployment.
+
+## Phase 10 completion
+
+- Gate E approved the exact immutable GitHub OIDC trust, orchestration role, separate CloudFormation execution role, main-only workflow, cost envelope and rollback path.
+- PR CI remains credential-free. Main CD repeats all checks before requesting a 30-minute AWS session, deploys one exact stack, publishes frontend artifacts without deletion, and never runs live RAG.
+- The first complete automatic deployment succeeded on 2026-08-27 with both `quality` and `deploy` green. SAM deployment, validated stack outputs, frontend build/publish, and one invalidation completed.
+- Two fail-closed commissioning defects were corrected: exact SAM transform expansion permission and required-output validation. Both have regression tests.
+
+## Phase 11 completion
+
+- Replaced stale bootstrap documentation with portfolio-ready runtime/CI diagrams, service tradeoffs, RAG/isolation lifecycle, security/cost bounds, development, deployment, limitations and future work.
+- Added a bounded repeatable demo and interview explanations at 20-second, two-minute and deep-technical levels.
+- Final audit passed all 53 backend tests, six frontend tests, Ruff, mypy, frontend lint/build, SAM lint/build for both templates, static secret-pattern scan, production HTTPS smoke check, deployed-resource/cost/IAM review, latest CI/CD status and clean Git state before the closeout commit.
+- The authenticated upload/ingest/retrieve/generate journey and two-owner isolation were proven in earlier bounded phases; closeout deliberately triggered no additional ingestion or model charge.
 
 ## Phase 2 completion
 
