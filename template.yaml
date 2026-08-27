@@ -15,6 +15,10 @@ Globals:
     Timeout: 10
     MemorySize: 256
     Tracing: Disabled
+    LoggingConfig:
+      LogFormat: JSON
+      ApplicationLogLevel: INFO
+      SystemLogLevel: WARN
 
 Resources:
   UserPool:
@@ -55,6 +59,12 @@ Resources:
   HttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength"}'
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
       CorsConfiguration:
         AllowOrigins: [!Ref AllowedFrontendOrigin]
         AllowHeaders: [authorization, content-type]
@@ -68,6 +78,11 @@ Resources:
               audience: [!Ref UserPoolClient]
               issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
         DefaultAuthorizer: CognitoJwt
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
 
   MeFunction:
     Type: AWS::Serverless::Function
@@ -94,14 +109,21 @@ Resources:
           KNOWLEDGE_BASE_ID: !Ref KnowledgeBase
           KNOWLEDGE_BASE_DATA_SOURCE_ID: !GetAtt KnowledgeBaseDataSource.DataSourceId
       Policies:
-        - S3WritePolicy:
-            BucketName: !Ref DocumentsBucket
         - Statement:
-            - Effect: Allow
-              Action: s3:GetObject
+            - Sid: ReadAndWriteOnlyPrivateDocumentObjects
+              Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
               Resource: !Sub ${DocumentsBucket.Arn}/users/*
-        - DynamoDBCrudPolicy:
-            TableName: !Ref DocumentsTable
+            - Sid: ExactDocumentMetadataOperations
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:Query
+                - dynamodb:UpdateItem
+              Resource: !GetAtt DocumentsTable.Arn
         - Statement:
             - Effect: Allow
               Action:
@@ -145,15 +167,23 @@ Resources:
     Properties:
       CodeUri: backend/src/
       Handler: aws_document_rag.query_handler.query
+      Timeout: 30
       Environment:
         Variables:
           DOCUMENTS_TABLE: !Ref DocumentsTable
+          USAGE_TABLE: !Ref UsageTable
           KNOWLEDGE_BASE_ID: !Ref KnowledgeBase
           GENERATION_MODEL_ID: eu.amazon.nova-micro-v1:0
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref DocumentsTable
         - Statement:
+            - Sid: ReadOnlyDocumentMetadata
+              Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt DocumentsTable.Arn
+            - Sid: IncrementOnlyGenerationBudget
+              Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !GetAtt UsageTable.Arn
             - Sid: RetrieveOnlyFromProjectKnowledgeBase
               Effect: Allow
               Action: bedrock:Retrieve
@@ -207,6 +237,21 @@ Resources:
         - AttributeName: ownerId
           KeyType: HASH
         - AttributeName: documentId
+          KeyType: RANGE
+
+  UsageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: scope
+          AttributeType: S
+        - AttributeName: period
+          AttributeType: S
+      KeySchema:
+        - AttributeName: scope
+          KeyType: HASH
+        - AttributeName: period
           KeyType: RANGE
 
   VectorBucket:

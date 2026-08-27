@@ -10,6 +10,8 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
+from .aws_config import MODEL_AWS_CONFIG, STANDARD_AWS_CONFIG
+from .observability import log_event
 from .rag import (
     MAX_OUTPUT_TOKENS,
     SYSTEM_PROMPT,
@@ -23,17 +25,41 @@ from .retrieval import retrieval_configuration
 
 @cache
 def _runtime() -> Any:
-    return boto3.client("bedrock-agent-runtime", region_name=os.environ["AWS_REGION"])
+    return boto3.client(
+        "bedrock-agent-runtime",
+        region_name=os.environ["AWS_REGION"],
+        config=STANDARD_AWS_CONFIG,
+    )
 
 
 @cache
 def _model_runtime() -> Any:
-    return boto3.client("bedrock-runtime", region_name=os.environ["AWS_REGION"])
+    return boto3.client(
+        "bedrock-runtime", region_name=os.environ["AWS_REGION"], config=MODEL_AWS_CONFIG
+    )
 
 
 @cache
 def _table() -> Any:
-    return boto3.resource("dynamodb").Table(os.environ["DOCUMENTS_TABLE"])
+    return boto3.resource("dynamodb", config=STANDARD_AWS_CONFIG).Table(
+        os.environ["DOCUMENTS_TABLE"]
+    )
+
+
+@cache
+def _usage_table() -> Any:
+    return boto3.resource("dynamodb", config=STANDARD_AWS_CONFIG).Table(os.environ["USAGE_TABLE"])
+
+
+def _consume_generation_budget() -> None:
+    from datetime import UTC, datetime
+
+    _usage_table().update_item(
+        Key={"scope": "GENERATION", "period": datetime.now(UTC).strftime("%Y-%m")},
+        UpdateExpression="ADD requestCount :one",
+        ConditionExpression="attribute_not_exists(requestCount) OR requestCount < :limit",
+        ExpressionAttributeValues={":one": 1, ":limit": 100},
+    )
 
 
 def _owner(event: dict[str, Any]) -> str:
@@ -59,7 +85,7 @@ def _insufficient() -> dict[str, Any]:
     )
 
 
-def query(event: dict[str, Any], _context: Any) -> dict[str, Any]:
+def query(event: dict[str, Any], context: Any) -> dict[str, Any]:
     try:
         owner = _owner(event)
         body = json.loads(event.get("body") or "{}")
@@ -80,7 +106,9 @@ def query(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         )
         chunks = normalize_retrieval_results(retrieved.get("retrievalResults", []), owner)
         if not chunks:
+            log_event("query_insufficient", event, context, statusCode=200, retrievedChunks=0)
             return _insufficient()
+        _consume_generation_budget()
         generated = _model_runtime().converse(
             modelId=os.environ["GENERATION_MODEL_ID"],
             system=[{"text": SYSTEM_PROMPT}],
@@ -107,7 +135,7 @@ def query(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             )
             if item:
                 filenames[chunk_document_id] = str(item["filename"])
-        return _response(
+        response = _response(
             200,
             {
                 "answer": answer,
@@ -115,7 +143,21 @@ def query(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 "insufficientContext": False,
             },
         )
+        log_event(
+            "query_completed",
+            event,
+            context,
+            statusCode=200,
+            retrievedChunks=len(chunks),
+            citationCount=len(filenames),
+        )
+        return response
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        log_event("query_rejected", event, context, statusCode=400)
         return _response(400, {"error": "Invalid query request"})
-    except ClientError:
+    except ClientError as error:
+        if error.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+            log_event("query_budget_exhausted", event, context, statusCode=429)
+            return _response(429, {"error": "Monthly development query limit reached"})
+        log_event("query_service_error", event, context, statusCode=503)
         return _response(503, {"error": "Grounded query service temporarily unavailable"})

@@ -1,7 +1,7 @@
 # Progress
 
-Current phase: `8`
-Status: `phase_7_complete`
+Current phase: `9`
+Status: `phase_8_complete`
 
 ## Phase status
 
@@ -13,7 +13,7 @@ Status: `phase_7_complete`
 - [x] Phase 5 — Ingestion lifecycle, metadata filtering and ownership isolation
 - [x] Phase 6 — RAG query pipeline with retrieval, generation and citations
 - [x] Phase 7 — Full-stack UX integration
-- [ ] Phase 8 — Security, reliability, observability and cost hardening
+- [x] Phase 8 — Security, reliability, observability and cost hardening
 - [ ] Phase 9 — Production frontend hosting and stable manual deployment
 - [ ] Phase 10 — CI/CD evolution with GitHub OIDC and automated deployment
 - [ ] Phase 11 — Demo, portfolio documentation, interview preparation and closure
@@ -89,6 +89,16 @@ Gate D — production frontend hosting. Phase 7 and Phase 8 may proceed before t
 - Browser validation at 1280 px and 390 px confirmed the intended typography, contrast and no horizontal overflow.
 - Verification: frontend lint, six Vitest tests and production build pass; tests cover the full mock journey, typed API mapping, citations, document scope and session expiry.
 - Next phase: Phase 8 security, reliability, observability and cost hardening.
+
+## Phase 8 completion
+
+- The security and current-cost inventory is recorded in `PHASE_08_AUDIT.md`; no unexplained critical finding remains.
+- Deployed exact SDK timeouts/retries, JSON logs, 14-day Lambda/API log retention, API throttling, a 100-call monthly generation counter, 20-document/100-KiB limits and non-regressing finalize behavior.
+- Tightened application roles to exact operations/resources. Live inspection found no wildcard action or wildcard resource in the document, query or Knowledge Base inline policies.
+- Live validation confirmed all seven routes remain JWT protected, QueryFunction has a 30-second timeout, the malformed request returned 400, its structured event appeared and its sentinel private content did not.
+- The first concurrency-reservation deployment rolled back because of the account quota; removing that unsupported reservation allowed the bounded controls to deploy successfully.
+- Verification: 45 backend tests, mypy, Ruff, SAM lint/build, six frontend tests, frontend lint/build and live post-deployment checks pass.
+- Next phase: Gate D report and production-like frontend hosting.
 
 ## Phase 2 completion
 
