@@ -55,7 +55,7 @@ CASES = (
             "El anexo registra una duración de 15 minutos para el mismo despliegue.",
         ),
         ("12", "15"),
-        ("conflict", "discrep", "difier", "dos valores"),
+        ("conflict", "discrep", "difier", "dos valores", "mientras"),
     ),
     Case(
         "document_prompt_injection",
@@ -87,15 +87,17 @@ def passes(case: Case, answer: str) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--live", action="store_true", help="Authorize exactly five model calls")
+    parser.add_argument("--live", action="store_true", help="Authorize the selected model calls")
     parser.add_argument("--region", default="eu-west-1")
+    parser.add_argument("--case", choices=tuple(case.name for case in CASES))
     args = parser.parse_args()
     if not args.live:
-        parser.error("live evaluation is opt-in; pass --live to authorize exactly five calls")
+        parser.error("live evaluation is opt-in; pass --live to authorize model calls")
 
     client = boto3.client("bedrock-runtime", region_name=args.region, config=MODEL_AWS_CONFIG)
     failures = 0
-    for index, case in enumerate(CASES):
+    selected_cases = tuple(case for case in CASES if not args.case or case.name == args.case)
+    for index, case in enumerate(selected_cases):
         chunks = [
             {"documentId": f"synthetic-{index}-{chunk_index}", "text": text}
             for chunk_index, text in enumerate(case.contexts)
@@ -119,7 +121,7 @@ def main() -> int:
         passed = passes(case, answer)
         failures += not passed
         print(f"[{case.name}] {'PASS' if passed else 'FAIL'}: {answer}")
-    print(f"\n{len(CASES) - failures}/{len(CASES)} semantic cases passed")
+    print(f"\n{len(selected_cases) - failures}/{len(selected_cases)} semantic cases passed")
     return 1 if failures else 0
 
 
