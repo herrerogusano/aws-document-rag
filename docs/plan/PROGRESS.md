@@ -1,12 +1,12 @@
 # Progress
 
-Current phase: `1`
-Status: `ready_to_start`
+Current phase: `2`
+Status: `blocked_by_gate_a`
 
 ## Phase status
 
 - [x] Phase 0 — Bootstrap, repo structure, local contracts and CI baseline
-- [ ] Phase 1 — React application shell and mocked document workflow
+- [x] Phase 1 — React application shell and mocked document workflow
 - [ ] Phase 2 — Cognito authentication and protected API skeleton
 - [ ] Phase 3 — Secure document upload with S3 + DynamoDB metadata
 - [ ] Phase 4 — Bedrock Knowledge Base + S3 Vectors + embeddings
@@ -22,16 +22,18 @@ Status: `ready_to_start`
 
 - Planning bundle copied directly to repository root.
 - Phase 0: `uv sync`, Ruff format/lint, mypy, pytest (2 passed), frontend lint/build, and `sam validate --lint` pass locally.
+- Phase 1: frontend lint, Vitest (2 passed), and production build pass locally.
 
 ## Pending gate
 
-Gate A — First AWS deployment (`pending`, not reached; Phase 2 earliest).
+Gate A — First AWS deployment (`pending`, reached for Phase 2; approval required before any AWS deployment).
 
 ## Decisions that affect later phases
 
 - Python 3.13 selected for the future Lambda runtime after official AWS support verification on 2026-08-27.
 - CI remains entirely offline and credential-free until an approved later phase.
 - Phase 0 SAM template contains only a conditionally disabled CloudFormation placeholder so it validates locally without defining active infrastructure.
+- React is intentionally backed by injectable local mock adapters until the Phase 2 Cognito/API boundary is approved.
 
 ## Phase 0 completion
 
@@ -39,3 +41,10 @@ Gate A — First AWS deployment (`pending`, not reached; Phase 2 earliest).
 - Deployment state: no AWS deployment attempted.
 - CI state: workflow added for backend, frontend, SAM validation, and static credential-pattern checking; remote CI pending first GitHub push/PR.
 - Next phase: Phase 1 — React application shell and mocked document workflow.
+
+## Phase 1 completion
+
+- Resources created: none.
+- Deployment state: no AWS deployment attempted.
+- CI state: extended with offline Vitest coverage for mock sign-in and upload validation; remote CI pending Phase 1 PR.
+- Next phase: Phase 2 — Cognito authentication and protected API skeleton (Gate A).
