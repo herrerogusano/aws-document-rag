@@ -88,13 +88,29 @@ jobs:
       - name: Read public deployment outputs
         id: stack
         run: |
-          outputs=$(aws cloudformation describe-stacks --stack-name "${{ vars.AWS_STACK_NAME }}" --query 'Stacks[0].Outputs' --output json)
-          echo "api_url=$(jq -r '.[] | select(.OutputKey==\"ApiUrl\") | .OutputValue' <<< "$outputs")" >> "$GITHUB_OUTPUT"
-          echo "client_id=$(jq -r '.[] | select(.OutputKey==\"UserPoolClientId\") | .OutputValue' <<< "$outputs")" >> "$GITHUB_OUTPUT"
-          echo "cognito_domain=$(jq -r '.[] | select(.OutputKey==\"ManagedLoginUrl\") | .OutputValue' <<< "$outputs")" >> "$GITHUB_OUTPUT"
-          echo "frontend_url=$(jq -r '.[] | select(.OutputKey==\"FrontendUrl\") | .OutputValue' <<< "$outputs")" >> "$GITHUB_OUTPUT"
-          echo "frontend_bucket=$(jq -r '.[] | select(.OutputKey==\"FrontendBucketName\") | .OutputValue' <<< "$outputs")" >> "$GITHUB_OUTPUT"
-          echo "distribution_id=$(jq -r '.[] | select(.OutputKey==\"FrontendDistributionId\") | .OutputValue' <<< "$outputs")" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          stack_output() {
+            aws cloudformation describe-stacks \
+              --stack-name "${{ vars.AWS_STACK_NAME }}" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          api_url="$(stack_output ApiUrl)"
+          client_id="$(stack_output UserPoolClientId)"
+          cognito_domain="$(stack_output ManagedLoginUrl)"
+          frontend_url="$(stack_output FrontendUrl)"
+          frontend_bucket="$(stack_output FrontendBucketName)"
+          distribution_id="$(stack_output FrontendDistributionId)"
+          for value in "$api_url" "$client_id" "$cognito_domain" "$frontend_url" "$frontend_bucket" "$distribution_id"; do
+            test -n "$value"
+            test "$value" != "None"
+          done
+          echo "api_url=$api_url" >> "$GITHUB_OUTPUT"
+          echo "client_id=$client_id" >> "$GITHUB_OUTPUT"
+          echo "cognito_domain=$cognito_domain" >> "$GITHUB_OUTPUT"
+          echo "frontend_url=$frontend_url" >> "$GITHUB_OUTPUT"
+          echo "frontend_bucket=$frontend_bucket" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$distribution_id" >> "$GITHUB_OUTPUT"
       - name: Build exact production frontend
         working-directory: frontend
         env:
