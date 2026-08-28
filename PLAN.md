@@ -56,7 +56,7 @@ CI starts in Phase 0 and evolves continuously. CD is introduced only after manua
 - Never store AWS access keys, Cognito passwords, test-user passwords, tokens, or sensitive user data in Git.
 - Use least privilege IAM.
 - No `AdministratorAccess` for runtime or CI/CD roles.
-- Do not reuse runtime dependencies from previous exercises.
+- Keep runtime dependencies project-specific, minimal and explicitly justified.
 - CI never calls real AWS, Bedrock, or Cognito.
 - No production-like CD until manual deployment is proven repeatable.
 
