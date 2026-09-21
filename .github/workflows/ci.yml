@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: "3.13"
       - run: uv sync --locked --all-groups
@@ -29,7 +29,7 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: aws-actions/setup-sam@v2
+      - uses: aws-actions/setup-sam@v3
       - run: sam validate --lint
       - run: sam build
       - run: sam validate --lint --template infrastructure/deployment-access.yaml
