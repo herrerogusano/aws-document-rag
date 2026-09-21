@@ -1,8 +1,35 @@
 # AWS Document RAG
 
-An owner-isolated retrieval-augmented generation (RAG) application on AWS. Authenticated users upload small private TXT, Markdown, or PDF documents, wait for indexing, and ask questions whose answers are grounded in their own retrieved content with citations.
+[![CI](https://github.com/herrerogusano/aws-document-rag/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/herrerogusano/aws-document-rag/actions/workflows/ci.yml)
+[![Deploy](https://github.com/herrerogusano/aws-document-rag/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/herrerogusano/aws-document-rag/actions/workflows/deploy.yml)
+
+An owner-isolated retrieval-augmented generation (RAG) application on AWS.
+Authenticated users upload small private TXT, Markdown, or PDF documents, wait
+for indexing, and ask questions whose answers are grounded in their own
+retrieved content with citations.
 
 [Open the hosted application](https://d39nib2ha1lp5v.cloudfront.net/) · [Demo runbook](docs/demo.md) · [Architecture details](docs/architecture/overview.md)
+
+> The hosted landing page is public; the document workflow requires an
+> administrator-created Cognito account. The repository and demo runbook provide
+> a credential-free review path without exposing documents or a public signup.
+
+<p align="center">
+  <img src="frontend/src/assets/hero.png" alt="Layered document index illustration" width="240" />
+</p>
+
+## What this project demonstrates
+
+- Full-stack React and Python delivery through API Gateway, Lambda, and
+  CloudFront.
+- Authorization Code + PKCE login with server-derived Cognito ownership.
+- Private direct-to-S3 uploads and recoverable ingestion state in DynamoDB.
+- Bedrock Knowledge Bases with S3 Vectors, mandatory owner filtering, and
+  defensive result revalidation.
+- Bounded Nova Lite generation with citations, prompt-injection handling, and a
+  versioned ambiguity evaluation suite.
+- Least-privilege IAM, GitHub OIDC deployment, offline CI, explicit cost limits,
+  and a private static origin protected by CloudFront OAC.
 
 ## User flow
 
@@ -13,7 +40,8 @@ An owner-isolated retrieval-augmented generation (RAG) application on AWS. Authe
 5. Ask a question across all documents or one selected document.
 6. See a bounded Nova Lite answer and citations to the retrieved owner-matching documents.
 
-The browser never supplies an owner ID. Every protected operation derives ownership from the verified Cognito JWT `sub`.
+The browser never supplies an owner ID. Every protected operation derives
+ownership from the verified Cognito JWT `sub`.
 
 ## Runtime architecture
 
